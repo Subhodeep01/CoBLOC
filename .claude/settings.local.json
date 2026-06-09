@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Read(//c/Users/Subhodeep/Documents/**)",
+      "Bash(npx create-vite@latest UI_CoFaDS_temp --template react)",
+      "Bash(cp -r /c/Users/Subhodeep/Documents/UI_CoFaDS_temp/* /c/Users/Subhodeep/Documents/UI_CoFaDS/)",
+      "Bash(cp /c/Users/Subhodeep/Documents/UI_CoFaDS_temp/.gitignore /c/Users/Subhodeep/Documents/UI_CoFaDS/)",
+      "Bash(cp /c/Users/Subhodeep/Documents/UI_CoFaDS_temp/.eslintrc* /c/Users/Subhodeep/Documents/UI_CoFaDS/)",
+      "Bash(rm -rf /c/Users/Subhodeep/Documents/UI_CoFaDS_temp)",
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(find C:UsersSubhodeepDocumentsUI_CoFaDS/src -type f \\\\\\(-name *.js -o -name *.jsx -o -name *.json \\\\\\))"
+    ]
+  }
+}

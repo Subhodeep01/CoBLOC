@@ -1,0 +1,103 @@
+import TimelineChart from './TimelineChart';
+import HighlightedWindows from './HighlightedWindows';
+import LandmarkRecommendation from './LandmarkRecommendation';
+import ConstraintsRecommendation from './ConstraintsRecommendation';
+import { TOPICS } from '../../constants/topics';
+
+const FAIRNESS_TOLERANCE = 10;
+
+function countFairBlocks(windows, constraints) {
+  return windows.flatMap(w => w.blocks).filter(block => {
+    const counts = {};
+    for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
+    const total = block.length || 1;
+    return Object.entries(constraints).every(([g, target]) =>
+      Math.abs(Math.round((counts[g] || 0) / total * 100) - target) <= FAIRNESS_TOLERANCE
+    );
+  }).length;
+}
+
+export default function SummaryPage({ session }) {
+  const { state, restart } = session;
+  const monitorOnly = TOPICS[state.config.topic]?.monitorOnly ?? false;
+  const fairBlocks = countFairBlocks(state.windows, state.config.constraints);
+  const totalBlocks = state.windows.flatMap(w => w.blocks).length;
+  const fairPct = totalBlocks > 0 ? Math.round(fairBlocks / totalBlocks * 100) : 0;
+
+  const landmarkReorderedWindows = state.windows.filter(
+    (w) => w.isReordered && w.windowIndex >= 1 && w.windowIndex <= 6 && w.reorderDelta != null
+  );
+  const avgItemsSwapped = landmarkReorderedWindows.length > 0
+    ? Math.round(
+        landmarkReorderedWindows.reduce((sum, w) => sum + w.reorderDelta * w.movies.length, 0)
+        / landmarkReorderedWindows.length
+      )
+    : null;
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <h2 className="text-4xl font-bold text-slate-900">Session Summary</h2>
+        <p className="text-lg text-slate-500 mt-1">
+          {state.windows.length} windows explored &middot;
+          {' '}{state.windows.filter(w => w.isReordered).length} reordered
+          {!monitorOnly && (
+            <> &middot; Landmark size: {state.config.landmarkSize}</>
+          )}
+        </p>
+      </div>
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-4 gap-5 mb-8">
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">Total Windows</p>
+          <p className="text-5xl font-bold text-slate-900 mt-2">{state.windows.length}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">Reorders</p>
+          <p className="text-5xl font-bold text-violet-600 mt-2">
+            {state.windows.filter(w => w.isReordered).length}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">
+            {state.config.topic === 'Hospital Admissions Data' ? 'Patients Seen' : 'Movies Seen'}
+          </p>
+          <p className="text-5xl font-bold text-emerald-600 mt-2">
+            {state.windows.length > 0 ? state.config.windowSize + (state.windows.length - 1) : 0}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">Fairness Achieved</p>
+          <p className="text-5xl font-bold text-sky-600 mt-2">{fairPct}%</p>
+          <p className="text-base text-slate-400 mt-1">{fairBlocks} of {totalBlocks} blocks</p>
+        </div>
+      </div>
+
+      {/* Timeline chart */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-6">
+        <TimelineChart windows={state.windows} config={state.config} />
+      </div>
+
+      {/* Highlighted windows */}
+      <HighlightedWindows windows={state.windows} monitorOnly={monitorOnly} />
+
+      {/* Recommendation */}
+      {monitorOnly
+        ? <ConstraintsRecommendation topic={state.config.topic} />
+        : <LandmarkRecommendation currentFairBlocks={fairPct} avgItemsSwapped={avgItemsSwapped} landmarkSize={state.config.landmarkSize} />
+      }
+
+      {/* Restart */}
+      <div className="mt-10 flex justify-center">
+        <button
+          onClick={restart}
+          className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base rounded-lg transition-colors"
+        >
+          Restart Session
+        </button>
+      </div>
+    </div>
+  );
+}
