@@ -43,6 +43,17 @@ export const TOPICS = {
       },
     ],
   },
+  'Live Kafka Stream': {
+    label: 'Live Kafka Stream',
+    protectedAttribute: 'Attribute',
+    monitorOnly: true,
+    live: true,
+    itemLabel: 'items',
+    constraints: {},          // populated dynamically from /api/attributes
+    protectedAttributes: [
+      { label: 'Attribute', field: 'genre', constraints: {} },
+    ],
+  },
 };
 
 export const TOPIC_NAMES = Object.keys(TOPICS);

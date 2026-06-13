@@ -9,6 +9,7 @@ export const initialState = {
     windowSize: '',
     blockSize: '',
     landmarkSize: '',
+    kafkaTopic: 'fairness-stream',
   },
   phase: 'config', // 'config' | 'streaming' | 'summary'
   currentWindowIndex: 0,

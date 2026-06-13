@@ -24,6 +24,11 @@ export function sessionReducer(state, action) {
     }
 
     case 'START_MONITOR': {
+      // Live Kafka Stream — skip static pool setup; WebSocket drives the display
+      if (state.config.topic === 'Live Kafka Stream') {
+        return { ...state, phase: 'streaming' };
+      }
+
       const isMoviesTopic = state.config.topic === 'Movies';
       const isHospitalTopic = state.config.topic === 'Hospital Admissions Data';
       const isPrimaryDiagnosis = isHospitalTopic && state.config.protectedAttribute === 'Primary Diagnosis';

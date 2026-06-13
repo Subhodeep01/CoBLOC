@@ -1,4 +1,13 @@
 export const GENRE_COLORS = {
+  // Live Kafka stream — gender
+  'F':  { bg: '#ec4899', gradient: 'from-pink-500 to-rose-400',   text: '#fdf2f8', badge: 'bg-pink-500 text-pink-100' },
+  'M':  { bg: '#3b82f6', gradient: 'from-blue-500 to-blue-600',   text: '#eff6ff', badge: 'bg-blue-500 text-blue-100' },
+  // Live Kafka stream — numeric bins
+  '0':  { bg: '#8b5cf6', gradient: 'from-violet-500 to-purple-600', text: '#f5f3ff', badge: 'bg-violet-500 text-violet-100' },
+  '1':  { bg: '#06b6d4', gradient: 'from-cyan-500 to-sky-500',    text: '#ecfeff', badge: 'bg-cyan-500 text-cyan-100' },
+  '2':  { bg: '#10b981', gradient: 'from-emerald-500 to-green-500', text: '#ecfdf5', badge: 'bg-emerald-500 text-emerald-100' },
+  '3':  { bg: '#f59e0b', gradient: 'from-amber-500 to-orange-400', text: '#fffbeb', badge: 'bg-amber-500 text-amber-100' },
+  '4':  { bg: '#ef4444', gradient: 'from-red-500 to-rose-500',    text: '#fef2f2', badge: 'bg-red-500 text-red-100' },
   // Movie genres
   'light-hearted': { bg: '#fbbf24', gradient: 'from-amber-400 to-yellow-300', text: '#92400e', badge: 'bg-amber-400 text-amber-900' },
   'dark-themed':   { bg: '#6366f1', gradient: 'from-indigo-500 to-purple-600', text: '#e0e7ff', badge: 'bg-indigo-500 text-indigo-100' },
@@ -18,6 +27,8 @@ export const GENRE_COLORS = {
 };
 
 export const GENRE_LABELS = {
+  'F': 'Female', 'M': 'Male',
+  '0': 'Bin 0', '1': 'Bin 1', '2': 'Bin 2', '3': 'Bin 3', '4': 'Bin 4',
   'discharged': 'Discharged',
   'expired': 'Expired',
   'dama': 'Discharged Against Medical Advice',
