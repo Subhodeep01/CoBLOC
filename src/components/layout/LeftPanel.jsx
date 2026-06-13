@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import TopicSelector from '../config/TopicSelector';
 import ProtectedAttribute from '../config/ProtectedAttribute';
 import ConstraintEditor from '../config/ConstraintEditor';
@@ -12,6 +13,9 @@ export default function LeftPanel({ session }) {
   const topicConfig = TOPICS[config.topic];
   const monitorOnly = topicConfig?.monitorOnly ?? false;
   const isLive = topicConfig?.live ?? false;
+
+  const liveAttrs = liveStream.apiAttributes;
+  const liveConstraints = config.constraints;
 
   const handleTopicChange = (topic) => {
     const preset = TOPICS[topic];
@@ -28,28 +32,48 @@ export default function LeftPanel({ session }) {
     }
   };
 
-  // When Live Kafka Stream is selected, populate constraints from the backend attributes
-  const liveAttrs = liveStream.apiAttributes;
-  const liveConstraints = config.constraints;
+  // Populate equal-split constraints from backend attributes once they load,
+  // only when the live topic is active and no constraints have been set yet.
+  useEffect(() => {
+    if (!isLive) return;
+    if (phase !== 'config') return;
+    if (liveAttrs.unique_values.length === 0) return;
+    if (Object.keys(liveConstraints).length > 0) return;
+
+    const n = liveAttrs.unique_values.length;
+    const equal = Math.floor(100 / n);
+    const newConstraints = {};
+    liveAttrs.unique_values.forEach((v, i) => {
+      newConstraints[v] = i === 0 ? 100 - equal * (n - 1) : equal;
+    });
+    setConfig({ constraints: newConstraints });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, phase, liveAttrs.unique_values.length, Object.keys(liveConstraints).length]);
 
   const handleMonitor = () => {
     if (isLive) {
-      // Build constraint keys from what the backend reports
+      // Compute constraints locally — setConfig is async so we can't rely on
+      // liveConstraints being updated before startStream is called.
+      let constraintsToUse = liveConstraints;
       if (liveAttrs.unique_values.length > 0 && Object.keys(liveConstraints).length === 0) {
-        const equal = Math.floor(100 / liveAttrs.unique_values.length);
+        const n = liveAttrs.unique_values.length;
+        const equal = Math.floor(100 / n);
         const newConstraints = {};
         liveAttrs.unique_values.forEach((v, i) => {
-          newConstraints[v] = i === 0 ? 100 - equal * (liveAttrs.unique_values.length - 1) : equal;
+          newConstraints[v] = i === 0 ? 100 - equal * (n - 1) : equal;
         });
         setConfig({ constraints: newConstraints });
+        constraintsToUse = newConstraints;
       }
+
       startMonitor();
       liveStream.startStream({
         kafkaTopic: config.kafkaTopic || 'fairness-stream',
         windowSize: config.windowSize || 20,
         blockSize: config.blockSize || 5,
         maxWindows: 500,
-        constraints: liveConstraints,
+        delayMs: 150,
+        constraints: constraintsToUse,
       });
     } else {
       startMonitor();
@@ -85,7 +109,6 @@ export default function LeftPanel({ session }) {
         {/* Live-specific controls */}
         {isLive && (
           <div className="space-y-4">
-            {/* Kafka topic input */}
             <div>
               <label className="block text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">
                 Kafka Topic
@@ -100,7 +123,6 @@ export default function LeftPanel({ session }) {
               />
             </div>
 
-            {/* Produce data button */}
             {phase === 'config' && (
               <button
                 onClick={() => liveStream.produceData(config.kafkaTopic || 'fairness-stream')}
@@ -111,7 +133,6 @@ export default function LeftPanel({ session }) {
               </button>
             )}
 
-            {/* Backend attribute info */}
             {liveAttrs.column && (
               <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600 border border-slate-200">
                 <span className="font-medium">Attribute:</span> {liveAttrs.column}
@@ -119,20 +140,6 @@ export default function LeftPanel({ session }) {
                 <span className="font-medium">Values:</span> {liveAttrs.unique_values.join(', ')}
               </div>
             )}
-
-            {/* Auto-populate constraints from backend when Live topic selected */}
-            {liveAttrs.unique_values.length > 0 &&
-             Object.keys(liveConstraints).length === 0 &&
-             phase === 'config' && (() => {
-              const equal = Math.floor(100 / liveAttrs.unique_values.length);
-              const newConstraints = {};
-              liveAttrs.unique_values.forEach((v, i) => {
-                newConstraints[v] = i === 0 ? 100 - equal * (liveAttrs.unique_values.length - 1) : equal;
-              });
-              // Side-effect in render — schedule it to avoid
-              setTimeout(() => setConfig({ constraints: newConstraints }), 0);
-              return null;
-            })()}
           </div>
         )}
 
@@ -168,7 +175,6 @@ export default function LeftPanel({ session }) {
 
       {/* Actions */}
       <div className="p-6 border-t border-slate-200 space-y-3">
-        {/* Live stream stop button */}
         {isLive && phase === 'streaming' && liveStream.running && (
           <button
             onClick={() => { liveStream.stopStream(); endSession(); }}
