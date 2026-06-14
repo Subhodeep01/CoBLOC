@@ -6,9 +6,9 @@ export const initialState = {
     protectedAttribute: 'Genre',
     protectedAttributeField: 'genre',
     constraints: { ...DEFAULT_CONSTRAINTS },
-    windowSize: '',
-    blockSize: '',
-    landmarkSize: '',
+    windowSize: 10,
+    blockSize: 5,
+    landmarkSize: 5,
     kafkaTopic: 'fairness-stream',
   },
   phase: 'config', // 'config' | 'streaming' | 'summary'
