@@ -67,8 +67,8 @@ export function useSession() {
     dispatch({ type: 'SET_ACTIVE_BLOCK', payload: index });
   }, []);
 
-  const endSession = useCallback(() => {
-    dispatch({ type: 'END_SESSION' });
+  const endSession = useCallback((liveWindows) => {
+    dispatch({ type: 'END_SESSION', payload: { liveWindows } });
   }, []);
 
   const restart = useCallback(() => {

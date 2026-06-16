@@ -10,9 +10,10 @@ export default function MovieTile({ movie }) {
   const [hovered, setHovered] = useState(false);
   const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8', badge: 'bg-slate-400 text-white' };
   const patient = isPatient(movie);
+  const live = movie.liveItem === true;
 
-  const posterGradient = patient
-    ? `linear-gradient(135deg, ${color.bg}aa, ${color.bg}44)`
+  const posterGradient = (patient || live)
+    ? `linear-gradient(135deg, ${color.bg}cc, ${color.bg}33)`
     : movie.genre === 'light-hearted'
     ? `linear-gradient(135deg, ${color.bg}aa, #fde68a88)`
     : movie.genre === 'dark-themed'
@@ -21,6 +22,8 @@ export default function MovieTile({ movie }) {
 
   const icon = patient
     ? (movie.genre === 'discharged' ? '🏥' : movie.genre === 'expired' ? '⚕️' : movie.genre === 'acs' ? '🫀' : movie.genre === 'heart-failure' ? '💔' : movie.genre === 'anaemia' ? '🩸' : '🚶')
+    : live
+    ? (movie.genre === 'F' ? '♀' : movie.genre === 'M' ? '♂' : '◈')
     : movie.genre === 'high' ? '⭐'
     : movie.genre === 'medium' ? '★'
     : movie.genre === 'low' ? '☆'
