@@ -62,11 +62,7 @@ export default function SummaryPage({ session }) {
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">
-            {state.config.topic === 'Hospital Admissions Data'
-              ? 'Patients Seen'
-              : state.config.topic === 'Live Kafka Stream'
-              ? 'Items Seen'
-              : 'Movies Seen'}
+            {(TOPICS[state.config.topic]?.itemLabel ?? 'items')} Seen
           </p>
           <p className="text-5xl font-bold text-emerald-600 mt-2">
             {state.windows.length > 0 ? state.config.windowSize + (state.windows.length - 1) : 0}

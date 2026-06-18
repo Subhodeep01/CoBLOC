@@ -19,7 +19,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
 
   const {
     connected, running, currentWindow, canNext, canPrev,
-    isLive, latestMetrics, goNext, goPrev, resumeLive,
+    latestMetrics, goNext, goPrev,
   } = liveStream;
 
   const constraints = config.constraints || {};
@@ -60,20 +60,6 @@ export default function LiveStream({ liveStream, config, onEnd }) {
             <h2 className="text-2xl font-bold text-slate-900">
               Window {windowNumber}
             </h2>
-            {isLive && running && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live
-              </span>
-            )}
-            {!isLive && (
-              <button
-                onClick={resumeLive}
-                className="text-sm font-medium text-sky-600 hover:text-sky-700 underline underline-offset-2"
-              >
-                Resume live
-              </button>
-            )}
           </div>
           <p className="text-base text-slate-500 mt-1">
             {currentWindow.items.length} items · {blocks.length} block{blocks.length !== 1 ? 's' : ''}

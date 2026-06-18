@@ -1,18 +1,5 @@
-import movies from '../data/mockMovies';
-import patients from '../data/hospitalData';
-import { DEMO_POOL_S01, DEMO_W1_REORDERED, DEMO_W2_REORDERED, DEMO_POOL_S2 } from '../data/demoMoviesData';
-import { chunkIntoBlocks, createNextWindow } from '../utils/windowOps';
-import { reorderBlocks, computeReorderDelta } from '../utils/reorder';
+import { chunkIntoBlocks } from '../utils/windowOps';
 import { TOPICS } from '../constants/topics';
-
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 export function sessionReducer(state, action) {
   switch (action.type) {
@@ -24,64 +11,7 @@ export function sessionReducer(state, action) {
     }
 
     case 'START_MONITOR': {
-      // Live Kafka Stream — skip static pool setup; WebSocket drives the display
-      if (state.config.topic === 'Live Kafka Stream') {
-        return { ...state, phase: 'streaming' };
-      }
-
-      const isMoviesTopic = state.config.topic === 'Movies';
-      const isHospitalTopic = state.config.topic === 'Hospital Admissions Data';
-      const isPrimaryDiagnosis = isHospitalTopic && state.config.protectedAttribute === 'Primary Diagnosis';
-
-      const protectedField = state.config.protectedAttributeField ?? 'genre';
-      const isRatingAttribute = isMoviesTopic && protectedField === 'ratingCategory';
-
-      let pool;
-      if (isMoviesTopic && !isRatingAttribute) {
-        pool = DEMO_POOL_S01;
-      } else if (isMoviesTopic && isRatingAttribute) {
-        pool = shuffleArray(movies.map(m => ({
-          ...m,
-          genre: m.rating >= 8.0 ? 'high' : m.rating >= 7.0 ? 'medium' : 'low',
-        })));
-      } else if (isPrimaryDiagnosis) {
-        pool = shuffleArray(patients.map(p => {
-          const primary = (p.diagnoses?.[0] || '').toLowerCase();
-          const diagnosisGenre =
-            primary.includes('acs') ? 'acs' :
-            primary.includes('heart failure') ? 'heart-failure' :
-            primary.includes('anaemia') ? 'anaemia' :
-            'acs';
-          return { ...p, genre: diagnosisGenre };
-        }));
-      } else {
-        pool = shuffleArray(isHospitalTopic ? patients : movies);
-      }
-
-      const { windowSize, blockSize } = state.config;
-      const firstMovies = pool.slice(0, windowSize);
-      const blocks = chunkIntoBlocks(firstMovies, blockSize);
-
-      return {
-        ...state,
-        phase: 'streaming',
-        moviePool: pool,
-        poolCursor: windowSize,
-        currentWindowIndex: 0,
-        windows: [{
-          windowIndex: 0,
-          movies: firstMovies,
-          blocks,
-          isReordered: false,
-          preReorderBlocks: null,
-          reorderDelta: null,
-        }],
-        windowHistory: [],
-        landmarkCounter: 0,
-        landmarkActive: false,
-        activeBlockIndex: 0,
-        demoScenario: 0,
-      };
+      return { ...state, phase: 'streaming' };
     }
 
     case 'NEXT_WINDOW': {

@@ -36,30 +36,20 @@ export function useLiveStream() {
   const [connected, setConnected] = useState(false);
   const [running, setRunning] = useState(false);
   const [producing, setProducing] = useState(false);
-  const [apiAttributes, setApiAttributes] = useState({ column: '', unique_values: [], summary: [] });
+  const [apiDatasets, setApiDatasets] = useState([]);
   const [windowBuffer, setWindowBuffer] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(-1);
-  const [autoFollow, _setAutoFollow] = useState(true);
   const [latestMetrics, setLatestMetrics] = useState({});
-
-  // Ref mirrors autoFollow state so the stable WS onmessage closure
-  // always reads the latest value without triggering reconnects.
-  const autoFollowRef = useRef(true);
-  const setAutoFollow = useCallback((v) => {
-    autoFollowRef.current = v;
-    _setAutoFollow(v);
-  }, []);
 
   const wsRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${API}/api/attributes`)
+    fetch(`${API}/api/datasets`)
       .then(r => r.json())
-      .then(setApiAttributes)
+      .then(setApiDatasets)
       .catch(() => {});
   }, []);
 
-  // Single stable WebSocket connection — never re-run due to autoFollow changes.
   useEffect(() => {
     let reconnectTimer;
 
@@ -80,8 +70,9 @@ export function useLiveStream() {
           const win = buildWindow(msg);
           setLatestMetrics(msg.metrics || {});
           setWindowBuffer(prev => {
-            const next = [...prev.slice(-199), win];
-            if (autoFollowRef.current) setCurrentIdx(next.length - 1);
+            const next = [...prev.slice(-499), win];
+            // Auto-show first window only; rest are manual
+            if (prev.length === 0) setCurrentIdx(0);
             return next;
           });
         } else if (msg.type === 'done') {
@@ -99,12 +90,11 @@ export function useLiveStream() {
       clearTimeout(reconnectTimer);
       wsRef.current?.close();
     };
-  }, []); // stable — no deps
+  }, []);
 
   const startStream = useCallback(async (config) => {
     setWindowBuffer([]);
     setCurrentIdx(-1);
-    setAutoFollow(true);
 
     const blockSize = parseInt(config.blockSize) || 5;
     const fairnessCounts = {};
@@ -114,11 +104,12 @@ export function useLiveStream() {
 
     const body = {
       topic_name: config.kafkaTopic,
-      window_size: parseInt(config.windowSize) || 20,
+      window_size: parseInt(config.windowSize) || 10,
       block_size: blockSize,
-      max_windows: parseInt(config.maxWindows) || 500,
+      max_windows: parseInt(config.maxWindows) || 50,
       fairness: fairnessCounts,
-      delay_ms: config.delayMs ?? 150,
+      attribute_column: config.attributeColumn || 'GENDER',
+      delay_ms: config.delayMs ?? 0,
     };
 
     const r = await fetch(`${API}/api/start`, {
@@ -128,64 +119,51 @@ export function useLiveStream() {
     });
     const data = await r.json();
     if (data.status !== 'error') setRunning(true);
-  }, [setAutoFollow]);
+  }, []);
 
   const stopStream = useCallback(() => {
     fetch(`${API}/api/stop`, { method: 'POST' });
     setRunning(false);
   }, []);
 
-  const produceData = useCallback(async (kafkaTopic) => {
+  const produceData = useCallback(async (datasetName) => {
     setProducing(true);
     const r = await fetch(`${API}/api/produce`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic_name: kafkaTopic }),
+      body: JSON.stringify({ dataset_name: datasetName }),
     });
     const data = await r.json();
     if (data.status !== 'started') setProducing(false);
   }, []);
 
   const goNext = useCallback(() => {
-    setAutoFollow(false);
     setCurrentIdx(i => i + 1);
-  }, [setAutoFollow]);
+  }, []);
 
   const goPrev = useCallback(() => {
-    setAutoFollow(false);
     setCurrentIdx(i => Math.max(i - 1, 0));
-  }, [setAutoFollow]);
-
-  const resumeLive = useCallback(() => {
-    setAutoFollow(true);
-    setWindowBuffer(buf => {
-      setCurrentIdx(buf.length - 1);
-      return buf;
-    });
-  }, [setAutoFollow]);
+  }, []);
 
   const currentWindow = windowBuffer[currentIdx] ?? null;
   const canNext = currentIdx >= 0 && currentIdx < windowBuffer.length - 1;
   const canPrev = currentIdx > 0;
-  const isLive = autoFollow;
 
   return {
     connected,
     running,
     producing,
-    apiAttributes,
+    apiDatasets,
     currentWindow,
     windowBuffer,
     currentIdx,
     canNext,
     canPrev,
-    isLive,
     latestMetrics,
     startStream,
     stopStream,
     produceData,
     goNext,
     goPrev,
-    resumeLive,
   };
 }

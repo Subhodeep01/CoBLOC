@@ -11,27 +11,29 @@ function isBlockFair(dist, constraints) {
   return true;
 }
 
-function CustomXAxisTick({ x, y, payload, data }) {
+function CustomXAxisTick({ x, y, payload, data, showLabel }) {
   const entry = data.find(d => d.name === payload.value);
   const fair = entry?.isFair;
   return (
     <g transform={`translate(${x},${y})`}>
-      {/* Fair/unfair dot above the label */}
-      <circle cx={0} cy={6} r={7} fill={fair ? '#10b981' : '#ef4444'} opacity={0.9} />
-      <text x={0} y={6} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="white" fontWeight="bold">
-        {fair ? '✓' : '✗'}
-      </text>
-      {/* Rotated label below */}
-      <text
-        x={0} y={20} dy={4}
-        textAnchor="end"
-        transform="rotate(-45, 0, 24)"
-        fill="#334155"
-        fontSize={13}
-        fontWeight="600"
-      >
-        {payload.value}
-      </text>
+      <circle cx={0} cy={6} r={showLabel ? 7 : 4} fill={fair ? '#10b981' : '#ef4444'} opacity={0.9} />
+      {showLabel && (
+        <>
+          <text x={0} y={6} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="white" fontWeight="bold">
+            {fair ? '✓' : '✗'}
+          </text>
+          <text
+            x={0} y={20} dy={4}
+            textAnchor="end"
+            transform="rotate(-45, 0, 24)"
+            fill="#334155"
+            fontSize={13}
+            fontWeight="600"
+          >
+            {payload.value}
+          </text>
+        </>
+      )}
     </g>
   );
 }
@@ -124,6 +126,10 @@ export default function TimelineChart({ windows, config }) {
     );
   };
 
+  const showLabels = data.length <= 40;
+  const bottomMargin = showLabels ? 60 : 20;
+  const xAxisHeight = showLabels ? 80 : 24;
+
   return (
     <div>
       <h3 className="text-2xl font-bold text-slate-900 mb-4">Session Timeline</h3>
@@ -145,13 +151,13 @@ export default function TimelineChart({ windows, config }) {
       </div>
 
       <ResponsiveContainer width="100%" height={420}>
-        <BarChart data={data} margin={{ top: 10, right: 20, bottom: 60, left: 0 }} barCategoryGap="30%">
+        <BarChart data={data} margin={{ top: 10, right: 20, bottom: bottomMargin, left: 0 }} barCategoryGap={data.length > 80 ? '5%' : '30%'}>
           <XAxis
             dataKey="name"
-            tick={(props) => <CustomXAxisTick {...props} data={data} />}
+            tick={(props) => <CustomXAxisTick {...props} data={data} showLabel={showLabels} />}
             axisLine={{ stroke: '#e2e8f0' }}
             tickLine={false}
-            height={80}
+            height={xAxisHeight}
             interval={0}
           />
           <YAxis hide domain={[0, 100]} />

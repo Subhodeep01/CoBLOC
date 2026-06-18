@@ -1,57 +1,27 @@
 export const TOPICS = {
-  Movies: {
-    label: 'Movies',
-    protectedAttribute: 'Genre',
-    monitorOnly: false,
-    itemLabel: 'movies',
-    constraints: {
-      'light-hearted': '',
-      'dark-themed': '',
-      'neutral': '',
-    },
-    protectedAttributes: [
-      {
-        label: 'Genre',
-        field: 'genre',
-        constraints: { 'light-hearted': '', 'dark-themed': '', 'neutral': '' },
-      },
-      {
-        label: 'Rating',
-        field: 'ratingCategory',
-        constraints: { 'high': '', 'medium': '', 'low': '' },
-      },
-    ],
-  },
   'Hospital Admissions Data': {
     label: 'Hospital Admissions Data',
-    protectedAttribute: 'Hospitalization Outcome',
+    live: true,
     monitorOnly: true,
     itemLabel: 'patients',
-    constraints: {
-      discharged: '',
-      expired: '',
-      dama: '',
-    },
+    topic: 'hospital-stream',
+    constraints: {},
     protectedAttributes: [
-      {
-        label: 'Hospitalization Outcome',
-        constraints: { discharged: '', expired: '', dama: '' },
-      },
-      {
-        label: 'Primary Diagnosis',
-        constraints: { acs: '', 'heart-failure': '', anaemia: '' },
-      },
+      { label: 'Gender', column: 'GENDER', constraints: {} },
+      { label: 'Hospitalization Outcome', column: 'OUTCOME', constraints: {} },
+      { label: 'Primary Diagnosis', column: 'PRIMARY_DIAGNOSIS', constraints: {} },
     ],
   },
-  'Live Kafka Stream': {
-    label: 'Live Kafka Stream',
-    protectedAttribute: 'Attribute',
-    monitorOnly: true,
+  'Stocks': {
+    label: 'Stocks',
     live: true,
-    itemLabel: 'items',
-    constraints: {},          // populated dynamically from /api/attributes
+    monitorOnly: true,
+    itemLabel: 'records',
+    topic: 'stock-stream',
+    constraints: {},
     protectedAttributes: [
-      { label: 'Attribute', field: 'genre', constraints: {} },
+      { label: 'Price Change', column: 'PRICE_CHANGE_BIN', constraints: {} },
+      { label: 'Volume', column: 'VOLUME_BIN', constraints: {} },
     ],
   },
 };
