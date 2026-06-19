@@ -7,7 +7,6 @@ export const TOPICS = {
     topic: 'hospital-stream',
     constraints: {},
     protectedAttributes: [
-      { label: 'Gender', column: 'GENDER', constraints: {} },
       { label: 'Hospitalization Outcome', column: 'OUTCOME', constraints: {} },
       { label: 'Primary Diagnosis', column: 'PRIMARY_DIAGNOSIS', constraints: {} },
     ],

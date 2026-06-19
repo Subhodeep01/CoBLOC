@@ -1,8 +1,8 @@
 export const initialState = {
   config: {
     topic: 'Hospital Admissions Data',
-    protectedAttribute: 'Gender',
-    protectedAttributeColumn: 'GENDER',
+    protectedAttribute: 'Hospitalization Outcome',
+    protectedAttributeColumn: 'OUTCOME',
     constraints: {},
     windowSize: 10,
     blockSize: 5,
