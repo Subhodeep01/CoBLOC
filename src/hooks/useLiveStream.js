@@ -40,6 +40,8 @@ export function useLiveStream() {
   const [windowBuffer, setWindowBuffer] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [latestMetrics, setLatestMetrics] = useState({});
+  const [producedTopic, setProducedTopic] = useState(null);
+  const [producedDataset, setProducedDataset] = useState(null);
 
   const wsRef = useRef(null);
 
@@ -128,13 +130,20 @@ export function useLiveStream() {
 
   const produceData = useCallback(async (datasetName) => {
     setProducing(true);
+    setProducedTopic(null);
+    setProducedDataset(null);
     const r = await fetch(`${API}/api/produce`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dataset_name: datasetName }),
     });
     const data = await r.json();
-    if (data.status !== 'started') setProducing(false);
+    if (data.status === 'started' && data.topic) {
+      setProducedTopic(data.topic);
+      setProducedDataset(datasetName);
+    } else {
+      setProducing(false);
+    }
   }, []);
 
   const goNext = useCallback(() => {
@@ -160,6 +169,8 @@ export function useLiveStream() {
     canNext,
     canPrev,
     latestMetrics,
+    producedTopic,
+    producedDataset,
     startStream,
     stopStream,
     produceData,

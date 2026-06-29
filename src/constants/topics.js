@@ -4,11 +4,11 @@ export const TOPICS = {
     live: true,
     monitorOnly: true,
     itemLabel: 'patients',
-    topic: 'hospital-stream',
     constraints: {},
     protectedAttributes: [
+      { label: 'Gender', column: 'GENDER', constraints: {} },
       { label: 'Hospitalization Outcome', column: 'OUTCOME', constraints: {} },
-      { label: 'Primary Diagnosis', column: 'PRIMARY_DIAGNOSIS', constraints: {} },
+      { label: 'Age', column: 'AGE_BIN', constraints: {} },
     ],
   },
   'Stocks': {
@@ -16,7 +16,6 @@ export const TOPICS = {
     live: true,
     monitorOnly: true,
     itemLabel: 'records',
-    topic: 'stock-stream',
     constraints: {},
     protectedAttributes: [
       { label: 'Price Change', column: 'PRICE_CHANGE_BIN', constraints: {} },

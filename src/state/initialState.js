@@ -1,13 +1,12 @@
 export const initialState = {
   config: {
     topic: 'Hospital Admissions Data',
-    protectedAttribute: 'Hospitalization Outcome',
-    protectedAttributeColumn: 'OUTCOME',
+    protectedAttribute: 'Gender',
+    protectedAttributeColumn: 'GENDER',
     constraints: {},
     windowSize: 10,
     blockSize: 5,
     landmarkSize: 5,
-    kafkaTopic: 'hospital-stream',
   },
   phase: 'config',
   currentWindowIndex: 0,

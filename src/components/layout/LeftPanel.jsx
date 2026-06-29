@@ -69,7 +69,7 @@ export default function LeftPanel({ session }) {
 
     startMonitor();
     liveStream.startStream({
-      kafkaTopic: topicConfig?.topic ?? config.kafkaTopic,
+      kafkaTopic: liveStream.producedTopic,
       windowSize: config.windowSize || 10,
       blockSize: config.blockSize || 5,
       maxWindows: 50,
@@ -210,7 +210,7 @@ export default function LeftPanel({ session }) {
         {!(phase === 'streaming' && liveStream.running) && (
           <button
             onClick={handleMonitor}
-            disabled={phase === 'streaming'}
+            disabled={phase === 'streaming' || !liveStream.producedTopic || liveStream.producedDataset !== config.topic}
             className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold rounded-lg text-base transition-colors"
           >
             Monitor
