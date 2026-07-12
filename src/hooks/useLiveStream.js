@@ -4,13 +4,16 @@ import { chunkIntoBlocks } from '../utils/windowOps';
 const API = 'http://localhost:8000';
 const WS_URL = 'ws://localhost:8000/ws/metrics';
 
-function makeItem(value, index, windowNumber) {
+function makeItem(item, index, windowNumber) {
+  const value = typeof item === 'object' ? item.value : item;
+  const raw = typeof item === 'object' ? item : {};
   return {
     id: `live-${windowNumber}-${index}`,
     genre: String(value),
     title: `#${index + 1}`,
     year: String(value),
     liveItem: true,
+    raw,
   };
 }
 

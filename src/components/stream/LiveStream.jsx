@@ -125,7 +125,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
 
         <div className="w-px bg-slate-200 self-stretch" />
 
-        {/* Window-level p-fair verdict */}
+        {/* Window-level fairness verdict */}
         <div className={`flex flex-col items-center justify-center gap-2 px-8 rounded-lg min-w-36 ${
           isFair ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'
         }`}>
@@ -133,7 +133,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
             {isFair ? '✓' : '✗'}
           </span>
           <span className={`text-sm font-semibold tracking-wide text-center ${isFair ? 'text-emerald-600' : 'text-red-500'}`}>
-            {isFair ? 'p-fair' : 'not p-fair'}
+            {isFair ? 'Fair' : 'Not Fair'}
           </span>
         </div>
       </div>

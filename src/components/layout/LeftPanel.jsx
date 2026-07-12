@@ -200,7 +200,7 @@ export default function LeftPanel({ session }) {
       <div className="p-6 border-t border-slate-200 space-y-3">
         {phase === 'streaming' && liveStream.running && (
           <button
-            onClick={() => { liveStream.stopStream(); endSession(liveStream.windowBuffer); }}
+            onClick={() => { liveStream.stopStream(); endSession(liveStream.windowBuffer.slice(0, liveStream.currentIdx + 1)); }}
             className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-base transition-colors"
           >
             Stop Stream

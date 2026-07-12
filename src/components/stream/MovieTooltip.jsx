@@ -71,9 +71,39 @@ function PatientTooltip({ patient }) {
   );
 }
 
+function LiveItemTooltip({ movie }) {
+  const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8' };
+  const raw = movie.raw || {};
+  const skip = new Set(['value']);
+  const entries = Object.entries(raw).filter(([k]) => !skip.has(k) && raw[k] !== '');
+
+  return (
+    <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color.bg }} />
+        <p className="text-sm font-semibold text-slate-900">{movie.title}</p>
+      </div>
+      <div className="space-y-1 text-xs">
+        {entries.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-2">
+            <span className="text-slate-500 shrink-0">{k}</span>
+            <span className="text-slate-700 text-right truncate max-w-32">{v}</span>
+          </div>
+        ))}
+      </div>
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white" />
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-200 translate-y-px" />
+    </div>
+  );
+}
+
 export default function MovieTooltip({ movie }) {
   if (isPatient(movie)) {
     return <PatientTooltip patient={movie} />;
+  }
+
+  if (movie.liveItem) {
+    return <LiveItemTooltip movie={movie} />;
   }
 
   const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8' };
