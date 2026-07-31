@@ -1,7 +1,7 @@
 import Block from './Block';
 import BlockNavigator from './BlockNavigator';
 import { genreDistribution } from '../../utils/metrics';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_LABELS } from '../../constants/genres';
 import { useState } from 'react';
 
 const FAIRNESS_TOLERANCE = 10;
@@ -91,7 +91,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
           <div className="flex h-10 w-full rounded-lg overflow-hidden border border-slate-200">
             {uniqueGenres.map(genre => {
               const pct = dist[genre] || 0;
-              const color = GENRE_COLORS[genre];
+              const color = getGenreColor(genre);
               return (
                 <div
                   key={genre}
@@ -109,7 +109,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
           <div className="flex flex-wrap gap-4">
             {uniqueGenres.map(genre => {
               const pct = dist[genre] || 0;
-              const color = GENRE_COLORS[genre];
+              const color = getGenreColor(genre);
               const target = constraints[genre];
               return (
                 <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">

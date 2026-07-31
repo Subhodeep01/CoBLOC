@@ -7,10 +7,11 @@ const WS_URL = 'ws://localhost:8000/ws/metrics';
 function makeItem(item, index, windowNumber) {
   const value = typeof item === 'object' ? item.value : item;
   const raw = typeof item === 'object' ? item : {};
+  const displayTitle = raw._display_title || `#${index + 1}`;
   return {
     id: `live-${windowNumber}-${index}`,
     genre: String(value),
-    title: `#${index + 1}`,
+    title: displayTitle,
     year: String(value),
     liveItem: true,
     raw,
@@ -75,8 +76,8 @@ export function useLiveStream() {
           const win = buildWindow(msg);
           setLatestMetrics(msg.metrics || {});
           setWindowBuffer(prev => {
+            if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
             const next = [...prev.slice(-499), win];
-            // Auto-show first window only; rest are manual
             if (prev.length === 0) setCurrentIdx(0);
             return next;
           });

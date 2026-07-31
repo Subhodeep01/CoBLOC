@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_LABELS } from '../../constants/genres';
 import MovieTooltip from './MovieTooltip';
 
 function isPatient(item) {
   return 'mrdNo' in item;
 }
 
-export default function MovieTile({ movie }) {
+export default function MovieTile({ movie, onClick }) {
   const [hovered, setHovered] = useState(false);
-  const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8', badge: 'bg-slate-400 text-white' };
+  const color = getGenreColor(movie.genre);
   const patient = isPatient(movie);
   const live = movie.liveItem === true;
 
@@ -21,9 +21,8 @@ export default function MovieTile({ movie }) {
     : `linear-gradient(135deg, ${color.bg}aa, #cbd5e188)`;
 
   const icon = patient
-    ? (movie.genre === 'discharged' ? '🏥' : movie.genre === 'expired' ? '⚕️' : movie.genre === 'acs' ? '🫀' : movie.genre === 'heart-failure' ? '💔' : movie.genre === 'anaemia' ? '🩸' : '🚶')
-    : live
-    ? (movie.genre === 'F' ? '♀' : movie.genre === 'M' ? '♂' : '◈')
+    ? (movie.genre === 'discharged' ? '🏥' : movie.genre === 'expired' ? '⚕️' : '🚶')
+    : live ? '◈'
     : movie.genre === 'high' ? '⭐'
     : movie.genre === 'medium' ? '★'
     : movie.genre === 'low' ? '☆'
@@ -32,11 +31,19 @@ export default function MovieTile({ movie }) {
   const label = patient ? `${movie.age}${movie.gender === 'M' ? 'M' : 'F'}` : movie.title;
   const sublabel = patient ? movie.outcome : movie.year;
 
+  const badgeStyle = color.badge?.startsWith('bg-[')
+    ? { backgroundColor: color.bg, color: '#fff' }
+    : {};
+  const badgeClass = color.badge?.startsWith('bg-[')
+    ? 'text-[10px] px-1.5 py-0.5 rounded-full font-medium'
+    : `text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color.badge || 'bg-slate-200 text-slate-700'}`;
+
   return (
     <div
       className="relative group cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onClick}
     >
       <div className="w-36 rounded-xl overflow-hidden bg-white border border-slate-200 hover:border-slate-400 transition-all hover:scale-105 hover:shadow-lg shadow-sm">
         <div
@@ -46,10 +53,10 @@ export default function MovieTile({ movie }) {
           <span className="opacity-70">{icon}</span>
         </div>
         <div className="p-3">
-          <p className="text-sm font-semibold text-slate-900 truncate">{label}</p>
+          <p className="text-sm font-semibold text-slate-900 truncate" title={label}>{label}</p>
           <div className="flex items-center justify-between mt-1.5">
-            <span className="text-xs text-slate-500">{sublabel}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color.badge}`}>
+            <span className="text-xs text-slate-500 truncate max-w-16" title={sublabel}>{sublabel}</span>
+            <span className={badgeClass} style={badgeStyle}>
               {GENRE_LABELS[movie.genre] ?? movie.genre}
             </span>
           </div>
