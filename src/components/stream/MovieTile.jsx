@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { getGenreColor, GENRE_LABELS } from '../../constants/genres';
 import MovieTooltip from './MovieTooltip';
+import ItemDetailModal from './ItemDetailModal';
 
 function isPatient(item) {
   return 'mrdNo' in item;
 }
 
-export default function MovieTile({ movie, onClick }) {
+export default function MovieTile({ movie }) {
   const [hovered, setHovered] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const color = getGenreColor(movie.genre);
   const patient = isPatient(movie);
   const live = movie.liveItem === true;
@@ -43,7 +45,7 @@ export default function MovieTile({ movie, onClick }) {
       className="relative group cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={onClick}
+      onClick={() => setDetailOpen(v => !v)}
     >
       <div className="w-36 rounded-xl overflow-hidden bg-white border border-slate-200 hover:border-slate-400 transition-all hover:scale-105 hover:shadow-lg shadow-sm">
         <div
@@ -62,7 +64,10 @@ export default function MovieTile({ movie, onClick }) {
           </div>
         </div>
       </div>
-      {hovered && <MovieTooltip movie={movie} />}
+      {hovered && !detailOpen && <MovieTooltip movie={movie} />}
+      {detailOpen && (
+        <ItemDetailModal movie={movie} onClose={() => setDetailOpen(false)} />
+      )}
     </div>
   );
 }

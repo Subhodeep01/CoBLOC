@@ -71,12 +71,12 @@ export default function LiveStream({ liveStream, config, onEnd }) {
         <div className="flex gap-3 text-xs text-slate-500">
           {preprocessingMs != null && (
             <span className="bg-slate-100 rounded-full px-3 py-1">
-              Pre: <strong className="text-slate-700">{preprocessingMs.toFixed(3)} ms</strong>
+              Bitrate: <strong className="text-slate-700">{preprocessingMs.toFixed(3)} ms</strong>
             </span>
           )}
           {queryMs != null && (
             <span className="bg-slate-100 rounded-full px-3 py-1">
-              Query: <strong className="text-slate-700">{queryMs.toFixed(3)} ms</strong>
+              Processing: <strong className="text-slate-700">{queryMs.toFixed(3)} ms</strong>
             </span>
           )}
         </div>

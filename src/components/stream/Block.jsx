@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import MovieTile from './MovieTile';
-import ItemDetailModal from './ItemDetailModal';
 
 export default function Block({ movies, blockIndex, totalBlocks }) {
-  const [selectedItem, setSelectedItem] = useState(null);
   const isPatientData = movies.length > 0 && 'mrdNo' in movies[0];
   const isLiveData = movies.length > 0 && movies[0].liveItem === true;
   const itemLabel = isPatientData ? 'patient' : isLiveData ? 'item' : 'movie';
@@ -20,14 +17,9 @@ export default function Block({ movies, blockIndex, totalBlocks }) {
       </div>
       <div className="flex flex-wrap gap-4 justify-center">
         {movies.map((movie) => (
-          <MovieTile
-            key={movie.id}
-            movie={movie}
-            onClick={() => setSelectedItem(movie)}
-          />
+          <MovieTile key={movie.id} movie={movie} />
         ))}
       </div>
-      <ItemDetailModal movie={selectedItem} onClose={() => setSelectedItem(null)} />
     </div>
   );
 }
