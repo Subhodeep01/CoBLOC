@@ -7,9 +7,8 @@ function isPatient(item) {
   return 'mrdNo' in item;
 }
 
-export default function MovieTile({ movie }) {
+export default function MovieTile({ movie, detailOpen = false, onToggleDetail }) {
   const [hovered, setHovered] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
   const color = getGenreColor(movie.genre);
   const patient = isPatient(movie);
   const live = movie.liveItem === true;
@@ -45,7 +44,7 @@ export default function MovieTile({ movie }) {
       className="relative group cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => setDetailOpen(v => !v)}
+      onClick={() => onToggleDetail?.()}
     >
       <div className="w-36 rounded-xl overflow-hidden bg-white border border-slate-200 hover:border-slate-400 transition-all hover:scale-105 hover:shadow-lg shadow-sm">
         <div
@@ -64,9 +63,9 @@ export default function MovieTile({ movie }) {
           </div>
         </div>
       </div>
-      {hovered && !detailOpen && <MovieTooltip movie={movie} />}
+      {hovered && !detailOpen && !live && <MovieTooltip movie={movie} />}
       {detailOpen && (
-        <ItemDetailModal movie={movie} onClose={() => setDetailOpen(false)} />
+        <ItemDetailModal movie={movie} onClose={() => onToggleDetail?.()} />
       )}
     </div>
   );

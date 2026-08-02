@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import MovieTile from './MovieTile';
 
 export default function Block({ movies, blockIndex, totalBlocks }) {
+  const [openId, setOpenId] = useState(null);
   const isPatientData = movies.length > 0 && 'mrdNo' in movies[0];
   const isLiveData = movies.length > 0 && movies[0].liveItem === true;
   const itemLabel = isPatientData ? 'patient' : isLiveData ? 'item' : 'movie';
@@ -17,7 +19,12 @@ export default function Block({ movies, blockIndex, totalBlocks }) {
       </div>
       <div className="flex flex-wrap gap-4 justify-center">
         {movies.map((movie) => (
-          <MovieTile key={movie.id} movie={movie} />
+          <MovieTile
+            key={movie.id}
+            movie={movie}
+            detailOpen={openId === movie.id}
+            onToggleDetail={() => setOpenId(openId === movie.id ? null : movie.id)}
+          />
         ))}
       </div>
     </div>

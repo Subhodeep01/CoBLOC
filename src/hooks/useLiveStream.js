@@ -158,6 +158,11 @@ export function useLiveStream() {
     setCurrentIdx(i => Math.max(i - 1, 0));
   }, []);
 
+  const goToWindow = useCallback((windowNum, buf) => {
+    const idx = buf.findIndex(w => w.windowNumber === windowNum);
+    if (idx !== -1) setCurrentIdx(idx);
+  }, []);
+
   const currentWindow = windowBuffer[currentIdx] ?? null;
   const canNext = currentIdx >= 0 && currentIdx < windowBuffer.length - 1;
   const canPrev = currentIdx > 0;
@@ -180,5 +185,6 @@ export function useLiveStream() {
     produceData,
     goNext,
     goPrev,
+    goToWindow,
   };
 }

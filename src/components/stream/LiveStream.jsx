@@ -16,11 +16,22 @@ function isBlockFair(dist, constraints) {
 
 export default function LiveStream({ liveStream, config, onEnd }) {
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
+  const [windowJumpVal, setWindowJumpVal] = useState('');
 
   const {
     connected, running, currentWindow, canNext, canPrev,
-    latestMetrics, goNext, goPrev,
+    latestMetrics, goNext, goPrev, goToWindow, windowBuffer, currentIdx,
   } = liveStream;
+
+  function handleWindowJump(e) {
+    if (e.key === 'Enter') {
+      const n = parseInt(windowJumpVal);
+      if (!isNaN(n)) {
+        goToWindow(n, windowBuffer);
+        setWindowJumpVal('');
+      }
+    }
+  }
 
   const constraints = config.constraints || {};
 
@@ -152,13 +163,27 @@ export default function LiveStream({ liveStream, config, onEnd }) {
 
       {/* Window navigator */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-        <button
-          onClick={goPrev}
-          disabled={!canPrev}
-          className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 font-medium rounded-lg text-sm transition-colors"
-        >
-          ← Prev Window
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={goPrev}
+            disabled={!canPrev}
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 text-slate-700 font-medium rounded-lg text-sm transition-colors"
+          >
+            ← Prev Window
+          </button>
+          {canPrev && (
+            <input
+              type="number"
+              min={windowBuffer[0]?.windowNumber ?? 1}
+              max={currentWindow?.windowNumber - 1}
+              value={windowJumpVal}
+              onChange={e => setWindowJumpVal(e.target.value)}
+              onKeyDown={handleWindowJump}
+              placeholder={`W# 1–${currentWindow?.windowNumber - 1}`}
+              className="w-28 px-2 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-emerald-400"
+            />
+          )}
+        </div>
 
         <button
           onClick={onEnd}
