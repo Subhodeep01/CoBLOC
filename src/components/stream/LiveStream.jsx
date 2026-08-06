@@ -2,7 +2,7 @@ import Block from './Block';
 import BlockNavigator from './BlockNavigator';
 import { genreDistribution } from '../../utils/metrics';
 import { getGenreColor, GENRE_LABELS } from '../../constants/genres';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const FAIRNESS_TOLERANCE = 10;
 
@@ -15,13 +15,19 @@ function isBlockFair(dist, constraints) {
 }
 
 export default function LiveStream({ liveStream, config, onEnd }) {
-  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
-  const [windowJumpVal, setWindowJumpVal] = useState('');
-
   const {
     connected, running, currentWindow, canNext, canPrev,
-    latestMetrics, goNext, goPrev, goToWindow, windowBuffer, currentIdx,
+    latestMetrics, goNext, goPrev, goToWindow, windowBuffer, currentIdx, maxReachedIdx,
   } = liveStream;
+
+  const [activeBlockIndex, setActiveBlockIndex] = useState(0);
+  const [maxReachedBlock, setMaxReachedBlock] = useState(0);
+  const [windowJumpVal, setWindowJumpVal] = useState('');
+
+  useEffect(() => {
+    setActiveBlockIndex(0);
+    setMaxReachedBlock(0);
+  }, [currentIdx]);
 
   function handleWindowJump(e) {
     if (e.key === 'Enter') {
@@ -57,6 +63,18 @@ export default function LiveStream({ liveStream, config, onEnd }) {
   const { windowNumber, blocks, isFair, fairText, preprocessingMs, queryMs, attribute } = currentWindow;
   const safeIdx = Math.min(activeBlockIndex, blocks.length - 1);
   const activeBlock = blocks[safeIdx] || [];
+
+  function handleBlockNavigate(i) {
+    if (i > safeIdx) {
+      // going forward — only allow one step at a time to the next unvisited block
+      const next = safeIdx + 1;
+      setActiveBlockIndex(next);
+      setMaxReachedBlock(m => Math.max(m, next));
+    } else {
+      // going backward or jumping within already-reached range
+      if (i <= maxReachedBlock) setActiveBlockIndex(i);
+    }
+  }
   const dist = genreDistribution(activeBlock);
   const blockFair = isBlockFair(dist, constraints);
 
@@ -158,7 +176,8 @@ export default function LiveStream({ liveStream, config, onEnd }) {
       <BlockNavigator
         activeIndex={safeIdx}
         totalBlocks={blocks.length}
-        onNavigate={(i) => setActiveBlockIndex(i)}
+        maxReachedBlock={maxReachedBlock}
+        onNavigate={handleBlockNavigate}
       />
 
       {/* Window navigator */}
@@ -171,15 +190,15 @@ export default function LiveStream({ liveStream, config, onEnd }) {
           >
             ← Prev Window
           </button>
-          {canPrev && (
+          {maxReachedIdx > 0 && (
             <input
               type="number"
               min={windowBuffer[0]?.windowNumber ?? 1}
-              max={currentWindow?.windowNumber - 1}
+              max={windowBuffer[maxReachedIdx]?.windowNumber ?? 1}
               value={windowJumpVal}
               onChange={e => setWindowJumpVal(e.target.value)}
               onKeyDown={handleWindowJump}
-              placeholder={`W# 1–${currentWindow?.windowNumber - 1}`}
+              placeholder={`W# ${windowBuffer[0]?.windowNumber ?? 1}–${windowBuffer[maxReachedIdx]?.windowNumber ?? 1}`}
               className="w-28 px-2 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-emerald-400"
             />
           )}

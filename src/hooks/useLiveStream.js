@@ -43,6 +43,7 @@ export function useLiveStream() {
   const [apiDatasets, setApiDatasets] = useState([]);
   const [windowBuffer, setWindowBuffer] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(-1);
+  const [maxReachedIdx, setMaxReachedIdx] = useState(-1);
   const [latestMetrics, setLatestMetrics] = useState({});
   const [producedTopic, setProducedTopic] = useState(null);
   const [producedDataset, setProducedDataset] = useState(null);
@@ -78,7 +79,10 @@ export function useLiveStream() {
           setWindowBuffer(prev => {
             if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
             const next = [...prev.slice(-499), win];
-            if (prev.length === 0) setCurrentIdx(0);
+            if (prev.length === 0) {
+              setCurrentIdx(0);
+              setMaxReachedIdx(0);
+            }
             return next;
           });
         } else if (msg.type === 'done') {
@@ -101,11 +105,12 @@ export function useLiveStream() {
   const startStream = useCallback(async (config) => {
     setWindowBuffer([]);
     setCurrentIdx(-1);
+    setMaxReachedIdx(-1);
 
     const blockSize = parseInt(config.blockSize) || 5;
     const fairnessCounts = {};
     for (const [k, pct] of Object.entries(config.constraints)) {
-      fairnessCounts[k] = Math.max(0, Math.round((parseInt(pct) || 0) / 100 * blockSize));
+      fairnessCounts[k] = Math.max(0, Math.floor((parseInt(pct) || 0) / 100 * blockSize));
     }
 
     const body = {
@@ -151,7 +156,11 @@ export function useLiveStream() {
   }, []);
 
   const goNext = useCallback(() => {
-    setCurrentIdx(i => i + 1);
+    setCurrentIdx(i => {
+      const next = i + 1;
+      setMaxReachedIdx(m => Math.max(m, next));
+      return next;
+    });
   }, []);
 
   const goPrev = useCallback(() => {
@@ -175,6 +184,7 @@ export function useLiveStream() {
     currentWindow,
     windowBuffer,
     currentIdx,
+    maxReachedIdx,
     canNext,
     canPrev,
     latestMetrics,

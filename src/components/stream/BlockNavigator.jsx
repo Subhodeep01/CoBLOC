@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
-export default function BlockNavigator({ activeIndex, totalBlocks, onNavigate }) {
+export default function BlockNavigator({ activeIndex, totalBlocks, maxReachedBlock, onNavigate }) {
   const [jumpVal, setJumpVal] = useState('');
 
   function handleJump(e) {
     if (e.key === 'Enter') {
       const n = parseInt(jumpVal);
-      if (!isNaN(n) && n >= 1 && n <= activeIndex) {
+      if (!isNaN(n) && n >= 1 && n - 1 <= maxReachedBlock) {
         onNavigate(n - 1);
         setJumpVal('');
       }
@@ -26,15 +26,15 @@ export default function BlockNavigator({ activeIndex, totalBlocks, onNavigate })
           </svg>
           Prev Block
         </button>
-        {activeIndex > 0 && (
+        {maxReachedBlock > 0 && (
           <input
             type="number"
             min={1}
-            max={activeIndex}
+            max={maxReachedBlock + 1}
             value={jumpVal}
             onChange={e => setJumpVal(e.target.value)}
             onKeyDown={handleJump}
-            placeholder={`1–${activeIndex}`}
+            placeholder={`1–${maxReachedBlock + 1}`}
             className="w-20 px-2 py-2 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-emerald-400 shadow-sm"
           />
         )}
@@ -44,9 +44,9 @@ export default function BlockNavigator({ activeIndex, totalBlocks, onNavigate })
         {Array.from({ length: totalBlocks }, (_, i) => (
           <button
             key={i}
-            onClick={() => onNavigate(i)}
+            onClick={() => i <= maxReachedBlock && onNavigate(i)}
             className={`w-3.5 h-3.5 rounded-full transition-colors ${
-              i === activeIndex ? 'bg-emerald-500' : 'bg-slate-300 hover:bg-slate-400'
+              i === activeIndex ? 'bg-emerald-500' : i <= maxReachedBlock ? 'bg-slate-300 hover:bg-slate-400' : 'bg-slate-200 cursor-not-allowed'
             }`}
           />
         ))}
