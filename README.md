@@ -1,6 +1,6 @@
-# UI CoFaDS
+# UI CoBLOC
 
-A React + Vite UI for CoFaDS.
+A React + Vite UI for CoBLOC.
 
 ## Getting Started
 
