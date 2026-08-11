@@ -14,7 +14,7 @@ export const TOPICS = {
   'Stocks (AAPL)': {
     label: 'Stocks (AAPL)',
     live: true,
-    monitorOnly: true,
+    monitorOnly: false,
     itemLabel: 'records',
     constraints: {},
     protectedAttributes: [
@@ -25,7 +25,7 @@ export const TOPICS = {
   'Tweets': {
     label: 'Tweets',
     live: true,
-    monitorOnly: true,
+    monitorOnly: false,
     itemLabel: 'tweets',
     constraints: {},
     protectedAttributes: [
@@ -38,7 +38,7 @@ export const TOPICS = {
   'Movies': {
     label: 'Movies',
     live: true,
-    monitorOnly: true,
+    monitorOnly: false,
     itemLabel: 'movies',
     constraints: {},
     protectedAttributes: [

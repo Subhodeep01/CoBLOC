@@ -78,8 +78,8 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
 
   const reordered = windows
     .map((w, i) => ({ ...w, originalIndex: i }))
-    .filter(w => w.isReordered && w.preReorderBlocks != null)
-    .map(w => ({ ...w, distDelta: computeDistDelta(w.preReorderBlocks, w.blocks) }))
+    .filter(w => w.isReordered && w.reorderedBlocks != null)
+    .map(w => ({ ...w, distDelta: computeDistDelta(w.blocks, w.reorderedBlocks) }))
     .sort((a, b) => b.distDelta - a.distDelta);
 
   if (reordered.length === 0) {
@@ -99,7 +99,7 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
           const isHighImpact = pct > 50;
           return (
             <div
-              key={w.windowIndex}
+              key={w.originalIndex}
               className={`flex items-center justify-between p-4 rounded-xl border ${
                 isHighImpact ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'
               }`}

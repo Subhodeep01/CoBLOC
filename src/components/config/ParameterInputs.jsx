@@ -1,5 +1,3 @@
-const LANDMARK_OPTIONS = [5, 10, 15, 20];
-
 function getDivisors(n) {
   const divs = [];
   for (let i = 1; i <= n; i++) {
@@ -23,7 +21,6 @@ export default function ParameterInputs({ config, onChange, disabled, monitorOnl
 
   return (
     <div className="space-y-4">
-      {/* Window Size */}
       <div>
         <label className="block text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">
           Window Size
@@ -34,16 +31,14 @@ export default function ParameterInputs({ config, onChange, disabled, monitorOnl
           onChange={(e) => handleWindowChange(e.target.value)}
           onBlur={(e) => {
             const n = parseInt(e.target.value);
-            if (!isNaN(n)) handleWindowChange(String(Math.max(2, Math.min(50, n))));
+            if (!isNaN(n)) handleWindowChange(String(Math.max(2, n)));
           }}
           disabled={disabled}
           min={2}
-          max={50}
           className="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
         />
       </div>
 
-      {/* Block Size — dropdown once window size is known */}
       <div>
         <label className="block text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">
           Block Size
@@ -73,20 +68,21 @@ export default function ParameterInputs({ config, onChange, disabled, monitorOnl
 
       {!monitorOnly && (
         <div>
-          <label className={`block text-sm font-medium uppercase tracking-wider mb-2 ${landmarkEnabled ? 'text-slate-700' : 'text-slate-300'}`}>
+          <label className={`block text-sm font-medium uppercase tracking-wider mb-2 ${landmarkEnabled ? 'text-slate-700' : 'text-slate-400'}`}>
             Landmark Size
           </label>
-          <select
-            value={config.landmarkSize}
-            onChange={(e) => onChange({ landmarkSize: parseInt(e.target.value) })}
+          <input
+            type="number"
+            min={1}
+            value={config.landmarkSize ?? ''}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange({ landmarkSize: v === '' ? '' : parseInt(v) || '' });
+            }}
             disabled={!landmarkEnabled}
-            className="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:text-slate-300"
-          >
-            <option value="" disabled>Select…</option>
-            {LANDMARK_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+            placeholder="Enter a number"
+            className="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:text-slate-400"
+          />
         </div>
       )}
     </div>

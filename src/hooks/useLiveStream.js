@@ -22,10 +22,13 @@ function buildWindow(msg) {
   const items = (msg.window_items || []).map((v, i) => makeItem(v, i, msg.window_number));
   const blockSize = msg.block_size || 5;
   const blocks = chunkIntoBlocks(items, blockSize);
+  const reorderedItems = (msg.reordered_items || msg.window_items || []).map((v, i) => makeItem(v, i, msg.window_number));
+  const reorderedBlocks = chunkIntoBlocks(reorderedItems, blockSize);
   return {
     windowNumber: msg.window_number,
     items,
     blocks,
+    reorderedBlocks,
     isFair: msg.is_fair,
     fairText: msg.fair_text || '',
     preprocessingMs: msg.preprocessing_ms,
@@ -33,7 +36,23 @@ function buildWindow(msg) {
     metrics: msg.metrics || {},
     attribute: msg.attribute || '',
     blockSize,
+    isReordered: false,
   };
+}
+
+function checkAllBlocksFair(blocks, constraints, blockSize) {
+  return blocks.every(block => {
+    const counts = {};
+    for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
+    return Object.entries(constraints).every(([g, pct]) => {
+      if (!pct) return true;
+      const p = (parseInt(pct) || 0) / 100;
+      const floor = Math.floor(p * blockSize);
+      const ceil = Math.ceil(p * blockSize);
+      const c = counts[g] || 0;
+      return c >= floor && c <= ceil;
+    });
+  });
 }
 
 export function useLiveStream() {
@@ -44,11 +63,14 @@ export function useLiveStream() {
   const [windowBuffer, setWindowBuffer] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [maxReachedIdx, setMaxReachedIdx] = useState(-1);
+  const [reordered, setReordered] = useState(false);
+  const [reorderStatus, setReorderStatus] = useState(null);
   const [latestMetrics, setLatestMetrics] = useState({});
   const [producedTopic, setProducedTopic] = useState(null);
   const [producedDataset, setProducedDataset] = useState(null);
 
   const wsRef = useRef(null);
+  const windowBufferRef = useRef([]);
 
   useEffect(() => {
     fetch(`${API}/api/datasets`)
@@ -79,6 +101,7 @@ export function useLiveStream() {
           setWindowBuffer(prev => {
             if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
             const next = [...prev.slice(-499), win];
+            windowBufferRef.current = next;
             if (prev.length === 0) {
               setCurrentIdx(0);
               setMaxReachedIdx(0);
@@ -102,15 +125,99 @@ export function useLiveStream() {
     };
   }, []);
 
+  const triggerInternalReorder = useCallback((currentWindow, idx, constraints) => {
+    if (!currentWindow) return;
+    const reordBlocks = currentWindow.reorderedBlocks || currentWindow.blocks;
+    const allFair = checkAllBlocksFair(reordBlocks, constraints, currentWindow.blockSize);
+
+    setReordered(true);
+    setWindowBuffer(prev => {
+      const next = prev.map((w, i) => i === idx ? { ...w, isReordered: true } : w);
+      windowBufferRef.current = next;
+      return next;
+    });
+
+    if (allFair) {
+      setReorderStatus({ phase: 'done', message: 'Window reordered successfully.' });
+    } else {
+      setReorderStatus({
+        phase: 'needs_landmark',
+        message: 'Internal reordering could not achieve full fairness. Enter a landmark size to try with look-ahead.',
+      });
+    }
+  }, []);
+
+  const triggerLandmarkReorder = useCallback(async (currentWindow, idx, landmarkSize, proportions, attributeColumn) => {
+    if (!currentWindow || !landmarkSize) return;
+    setReorderStatus({ phase: 'loading', message: 'Reordering with landmark… Please wait.' });
+
+    try {
+      const windowItems = currentWindow.items.map(i => i.raw);
+      const buf = windowBufferRef.current;
+
+      const landmarkItems = [];
+      for (let ni = idx + 1; ni < buf.length && landmarkItems.length < landmarkSize; ni++) {
+        for (const item of buf[ni].items) {
+          if (landmarkItems.length >= landmarkSize) break;
+          landmarkItems.push(item.raw);
+        }
+      }
+
+      const combined = [...windowItems, ...landmarkItems];
+
+      const r = await fetch(`${API}/api/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          window_items: combined,
+          window_size: windowItems.length,
+          block_size: currentWindow.blockSize,
+          proportions,
+          attribute_column: attributeColumn,
+        }),
+      });
+
+      const data = await r.json();
+      if (data.status === 'ok') {
+        const newItems = data.reordered_items.map((v, i) => makeItem(v, i, currentWindow.windowNumber));
+        const newBlocks = chunkIntoBlocks(newItems, currentWindow.blockSize);
+        setWindowBuffer(prev => {
+          const next = prev.map((w, i) =>
+            i === idx ? { ...w, reorderedBlocks: newBlocks, isReordered: true } : w
+          );
+          windowBufferRef.current = next;
+          return next;
+        });
+        setReordered(true);
+        setReorderStatus({ phase: 'done', message: `Reordered using landmark size ${landmarkSize}.` });
+      } else {
+        setReorderStatus({ phase: 'error', message: data.message || 'Reorder failed.' });
+      }
+    } catch (e) {
+      setReorderStatus({ phase: 'error', message: e.message });
+    }
+  }, []);
+
   const startStream = useCallback(async (config) => {
     setWindowBuffer([]);
+    windowBufferRef.current = [];
     setCurrentIdx(-1);
     setMaxReachedIdx(-1);
+    setReordered(false);
+    setReorderStatus(null);
 
     const blockSize = parseInt(config.blockSize) || 5;
     const fairnessCounts = {};
     for (const [k, pct] of Object.entries(config.constraints)) {
       fairnessCounts[k] = Math.max(0, Math.floor((parseInt(pct) || 0) / 100 * blockSize));
+    }
+
+    const rawProportions = {};
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseInt(v) || 0), 0);
+    if (totalPct > 0) {
+      for (const [k, pct] of Object.entries(config.constraints || {})) {
+        rawProportions[k] = (parseInt(pct) || 0) / totalPct;
+      }
     }
 
     const body = {
@@ -119,6 +226,8 @@ export function useLiveStream() {
       block_size: blockSize,
       max_windows: parseInt(config.maxWindows) || 50,
       fairness: fairnessCounts,
+      proportions: rawProportions,
+      landmark_size: parseInt(config.landmarkSize) || 5,
       attribute_column: config.attributeColumn || 'GENDER',
       delay_ms: config.delayMs ?? 0,
     };
@@ -156,20 +265,31 @@ export function useLiveStream() {
   }, []);
 
   const goNext = useCallback(() => {
+    setReorderStatus(null);
     setCurrentIdx(i => {
       const next = i + 1;
       setMaxReachedIdx(m => Math.max(m, next));
+      const win = windowBufferRef.current[next];
+      setReordered(win?.isReordered ?? false);
       return next;
     });
   }, []);
 
   const goPrev = useCallback(() => {
-    setCurrentIdx(i => Math.max(i - 1, 0));
+    setReorderStatus(null);
+    setCurrentIdx(i => {
+      const prev = Math.max(i - 1, 0);
+      const win = windowBufferRef.current[prev];
+      setReordered(win?.isReordered ?? false);
+      return prev;
+    });
   }, []);
 
-  const goToWindow = useCallback((windowNum, buf) => {
-    const idx = buf.findIndex(w => w.windowNumber === windowNum);
-    if (idx !== -1) setCurrentIdx(idx);
+  const goToIdx = useCallback((idx) => {
+    setReorderStatus(null);
+    const win = windowBufferRef.current[idx];
+    setReordered(win?.isReordered ?? false);
+    setCurrentIdx(idx);
   }, []);
 
   const currentWindow = windowBuffer[currentIdx] ?? null;
@@ -195,6 +315,10 @@ export function useLiveStream() {
     produceData,
     goNext,
     goPrev,
-    goToWindow,
+    goToIdx,
+    triggerInternalReorder,
+    triggerLandmarkReorder,
+    reordered,
+    reorderStatus,
   };
 }

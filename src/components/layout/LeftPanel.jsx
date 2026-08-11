@@ -1,25 +1,45 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import ParameterInputs from '../config/ParameterInputs';
 import { TOPICS } from '../../constants/topics';
+
+const MONITOR_ONLY_TOPICS = Object.entries(TOPICS)
+  .filter(([, v]) => v.monitorOnly)
+  .map(([k]) => k);
+
+const REORDER_TOPICS = Object.entries(TOPICS)
+  .filter(([, v]) => !v.monitorOnly)
+  .map(([k]) => k);
 
 export default function LeftPanel({ session }) {
   const { state, liveStream, setConfig, startMonitor, endSession } = session;
   const { config, phase } = state;
 
   const topicConfig = TOPICS[config.topic];
+  const isMonitorOnly = topicConfig?.monitorOnly ?? true;
   const attrOptions = topicConfig?.protectedAttributes ?? [];
 
-  // Find the dataset info from backend for the current topic
   const apiDataset = liveStream.apiDatasets.find(d => d.name === config.topic);
   const apiAttr = apiDataset?.attributes.find(a => a.column === config.protectedAttributeColumn);
   const uniqueValues = apiAttr?.unique_values ?? [];
+
+  const [landmarkInput, setLandmarkInput] = useState('');
+
+  // Compute proportions from constraints for landmark reorder
+  const proportions = (() => {
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseInt(v) || 0), 0);
+    if (!totalPct) return {};
+    const p = {};
+    for (const [k, pct] of Object.entries(config.constraints || {})) {
+      p[k] = (parseInt(pct) || 0) / totalPct;
+    }
+    return p;
+  })();
 
   // Auto-populate constraints from backend unique values when attribute changes
   useEffect(() => {
     if (phase !== 'config') return;
     if (uniqueValues.length === 0) return;
     if (Object.keys(config.constraints).length > 0) return;
-
     const n = uniqueValues.length;
     const equal = Math.floor(100 / n);
     const newConstraints = {};
@@ -29,6 +49,11 @@ export default function LeftPanel({ session }) {
     setConfig({ constraints: newConstraints });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueValues.join(','), config.topic, config.protectedAttributeColumn, phase]);
+
+  // Reset landmark input when window changes
+  useEffect(() => {
+    setLandmarkInput('');
+  }, [liveStream.currentIdx]);
 
   const handleTopicChange = (topic) => {
     const preset = TOPICS[topic];
@@ -55,7 +80,6 @@ export default function LeftPanel({ session }) {
 
   const handleMonitor = () => {
     let constraintsToUse = config.constraints;
-
     if (uniqueValues.length > 0 && Object.keys(constraintsToUse).length === 0) {
       const n = uniqueValues.length;
       const equal = Math.floor(100 / n);
@@ -66,18 +90,30 @@ export default function LeftPanel({ session }) {
       setConfig({ constraints: newConstraints });
       constraintsToUse = newConstraints;
     }
-
     startMonitor();
     liveStream.startStream({
       kafkaTopic: liveStream.producedTopic,
       windowSize: config.windowSize || 10,
       blockSize: config.blockSize || 5,
+      landmarkSize: config.landmarkSize || 5,
       maxWindows: 50,
       delayMs: 0,
       constraints: constraintsToUse,
       attributeColumn: config.protectedAttributeColumn || 'GENDER',
     });
   };
+
+  const currentWindow = liveStream.currentWindow;
+  const reorderStatus = liveStream.reorderStatus;
+  const needsLandmark = reorderStatus?.phase === 'needs_landmark';
+  const isLoading = reorderStatus?.phase === 'loading';
+  const canReorder = phase === 'streaming'
+    && !isMonitorOnly
+    && currentWindow
+    && !currentWindow.isFair
+    && !currentWindow.isReordered;
+
+  const landmarkEnabled = phase === 'config' || needsLandmark;
 
   return (
     <aside className="w-96 min-w-96 bg-white border-r border-slate-200 flex flex-col h-screen overflow-y-auto">
@@ -102,7 +138,7 @@ export default function LeftPanel({ session }) {
       {/* Config */}
       <div className="p-6 space-y-6 flex-1">
 
-        {/* Dataset selector */}
+        {/* Dataset selector — grouped */}
         <div>
           <label className="block text-sm font-medium text-slate-500 uppercase tracking-wider mb-2">
             Topic of Exploration
@@ -114,9 +150,20 @@ export default function LeftPanel({ session }) {
               disabled={phase !== 'config'}
               className="w-full appearance-none bg-slate-50 border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 pr-10"
             >
-              {Object.keys(TOPICS).map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              {MONITOR_ONLY_TOPICS.length > 0 && (
+                <optgroup label="Monitor Only">
+                  {MONITOR_ONLY_TOPICS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
+              )}
+              {REORDER_TOPICS.length > 0 && (
+                <optgroup label="Reorder Available">
+                  {REORDER_TOPICS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">▾</span>
           </div>
@@ -186,13 +233,13 @@ export default function LeftPanel({ session }) {
           </button>
         )}
 
-        {/* Window / Block size */}
+        {/* Window / Block / Landmark size */}
         <ParameterInputs
           config={config}
           onChange={setConfig}
           disabled={phase !== 'config'}
-          monitorOnly={true}
-          landmarkEnabled={false}
+          monitorOnly={isMonitorOnly}
+          landmarkEnabled={landmarkEnabled}
         />
       </div>
 
@@ -215,6 +262,67 @@ export default function LeftPanel({ session }) {
           >
             Monitor
           </button>
+        )}
+
+        {/* Reorder — only for unfair, non-monitor-only, not yet reordered */}
+        {canReorder && !liveStream.reordered && (
+          <button
+            onClick={() => liveStream.triggerInternalReorder(currentWindow, liveStream.currentIdx, config.constraints)}
+            className="w-full py-3 px-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg text-base transition-colors"
+          >
+            Reorder
+          </button>
+        )}
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="rounded-lg px-4 py-3 text-sm border bg-amber-50 border-amber-200 text-amber-700 flex items-center gap-2">
+            <span className="animate-spin text-base">⏳</span>
+            <p className="font-medium">{reorderStatus.message}</p>
+          </div>
+        )}
+
+        {/* Status message */}
+        {reorderStatus && !isLoading && (
+          <div className={`rounded-lg px-4 py-3 text-sm border ${
+            reorderStatus.phase === 'done'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : reorderStatus.phase === 'error'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+            <p className="font-medium">{reorderStatus.message}</p>
+          </div>
+        )}
+
+        {/* Landmark input — unlocked after internal reorder fails */}
+        {needsLandmark && (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Landmark Size
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={landmarkInput}
+              onChange={e => setLandmarkInput(e.target.value)}
+              placeholder="Enter a number (e.g. 5)"
+              className="w-full bg-slate-100 border border-violet-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+            />
+            <button
+              onClick={() => liveStream.triggerLandmarkReorder(
+                currentWindow,
+                liveStream.currentIdx,
+                parseInt(landmarkInput) || 0,
+                proportions,
+                config.protectedAttributeColumn || 'GENDER'
+              )}
+              disabled={!landmarkInput || parseInt(landmarkInput) < 1}
+              className="w-full py-3 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-white font-semibold rounded-lg text-base transition-colors"
+            >
+              Reorder with Landmark
+            </button>
+          </div>
         )}
       </div>
     </aside>
