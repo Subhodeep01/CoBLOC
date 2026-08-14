@@ -20,7 +20,8 @@ function isBlockFair(block, constraints, blockSize) {
 export default function LiveStream({ liveStream, config, onEnd }) {
   const {
     connected, running, currentWindow, canNext, canPrev,
-    latestMetrics, goNext, goPrev, goToIdx, windowBuffer, currentIdx, maxReachedIdx, reordered,
+    latestMetrics, goNext, goPrev, goToIdx, windowBuffer, currentIdx, maxReachedIdx,
+    landmarkLoadedIndices, reordered,
   } = liveStream;
 
   const [activeBlockIndex, setActiveBlockIndex] = useState(0);
@@ -78,9 +79,14 @@ export default function LiveStream({ liveStream, config, onEnd }) {
               )}
             </h2>
           </div>
-          <p className="text-base text-slate-500 mt-1">
+          <p className="text-base text-slate-500 mt-1 flex items-center gap-3">
             {currentWindow.items.length} items · {blocks.length} block{blocks.length !== 1 ? 's' : ''}
-            {attribute && <span className="ml-2 text-slate-400">· {attribute}</span>}
+            {attribute && <span className="text-slate-400">· {attribute}</span>}
+            {landmarkLoadedIndices.has(currentIdx) && (
+              <span className="flex items-center gap-1 text-amber-500 font-semibold text-sm">
+                🔄 Landmark Affected
+              </span>
+            )}
           </p>
         </div>
 
@@ -205,17 +211,19 @@ export default function LiveStream({ liveStream, config, onEnd }) {
             <div className="flex gap-2">
               {indices.map(i => {
                 const isActive = i === currentIdx;
-                const isLoaded = i < windowBuffer.length;
+                const inBuffer = i < windowBuffer.length;
+                // clickable if manually reached OR unlocked by landmark reorder
+                const isAccessible = inBuffer && (i <= maxReachedIdx || landmarkLoadedIndices.has(i));
                 const winNum = windowBuffer[i]?.windowNumber ?? i + 1;
                 return (
                   <button
                     key={i}
-                    onClick={() => isLoaded && goToIdx(i)}
-                    disabled={!isLoaded}
+                    onClick={() => isAccessible && goToIdx(i)}
+                    disabled={!isAccessible}
                     className={`w-7 h-7 rounded-full text-[11px] font-semibold transition-colors flex items-center justify-center
                       ${isActive
                         ? 'bg-emerald-500 text-white shadow'
-                        : isLoaded
+                        : isAccessible
                         ? 'bg-slate-300 hover:bg-slate-400 text-slate-700'
                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       }`}

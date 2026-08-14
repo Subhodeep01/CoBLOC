@@ -65,6 +65,7 @@ export function useLiveStream() {
   const [maxReachedIdx, setMaxReachedIdx] = useState(-1);
   const [reordered, setReordered] = useState(false);
   const [reorderStatus, setReorderStatus] = useState(null);
+  const [landmarkLoadedIndices, setLandmarkLoadedIndices] = useState(new Set());
   const [latestMetrics, setLatestMetrics] = useState({});
   const [producedTopic, setProducedTopic] = useState(null);
   const [producedDataset, setProducedDataset] = useState(null);
@@ -155,12 +156,19 @@ export function useLiveStream() {
       const windowItems = currentWindow.items.map(i => i.raw);
       const buf = windowBufferRef.current;
 
+      // landmark size = number of windows to look ahead
       const landmarkItems = [];
-      for (let ni = idx + 1; ni < buf.length && landmarkItems.length < landmarkSize; ni++) {
+      const landmarkIndices = [];
+      for (let ni = idx + 1; ni <= idx + landmarkSize && ni < buf.length; ni++) {
+        landmarkIndices.push(ni);
         for (const item of buf[ni].items) {
-          if (landmarkItems.length >= landmarkSize) break;
           landmarkItems.push(item.raw);
         }
+      }
+
+      // Mark those window indices as accessible in the navigator
+      if (landmarkIndices.length > 0) {
+        setLandmarkLoadedIndices(prev => new Set([...prev, ...landmarkIndices]));
       }
 
       const combined = [...windowItems, ...landmarkItems];
@@ -205,6 +213,7 @@ export function useLiveStream() {
     setMaxReachedIdx(-1);
     setReordered(false);
     setReorderStatus(null);
+    setLandmarkLoadedIndices(new Set());
 
     const blockSize = parseInt(config.blockSize) || 5;
     const fairnessCounts = {};
@@ -305,6 +314,7 @@ export function useLiveStream() {
     windowBuffer,
     currentIdx,
     maxReachedIdx,
+    landmarkLoadedIndices,
     canNext,
     canPrev,
     latestMetrics,
