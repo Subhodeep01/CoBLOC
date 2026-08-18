@@ -1,13 +1,6 @@
-/**
- * Check if a single block satisfies floor/ceiling fairness.
- */
 export function isBlockFair(block, constraints, blockSize) {
   const counts = {};
   for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
-  // Scale against the total the user actually entered, not 100. The backend
-  // normalises the same constraints before deriving its bounds, so dividing by
-  // a hardcoded 100 makes these badges disagree with the fair-block counts
-  // whenever the inputs do not happen to add up to 100.
   const total = Object.values(constraints).reduce((s, v) => s + (parseInt(v) || 0), 0);
   if (!total) return true;
   return Object.entries(constraints).every(([g, pct]) => {
@@ -20,9 +13,6 @@ export function isBlockFair(block, constraints, blockSize) {
   });
 }
 
-/**
- * Check if all blocks in a window are fair.
- */
 export function isWindowFair(blocks, constraints, blockSize) {
   return blocks.every(b => isBlockFair(b, constraints, blockSize));
 }

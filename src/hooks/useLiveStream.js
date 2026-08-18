@@ -72,7 +72,6 @@ export function useLiveStream() {
 
   const wsRef = useRef(null);
   const windowBufferRef = useRef([]);
-  // Stores pending landmark reorder so late-arriving windows get their slice applied
   const pendingLandmarkRef = useRef(null); // { baseIdx, winSize, blockSize, allReordered }
 
   useEffect(() => {
@@ -104,17 +103,14 @@ export function useLiveStream() {
           setWindowBuffer(prev => {
             if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
             const newIdx = prev.length;
-            // Apply pending landmark reorder to this window if it falls in range
             const pl = pendingLandmarkRef.current;
             if (pl && newIdx > pl.baseIdx && newIdx <= pl.baseIdx + pl.totalWindows) {
-              // Overlapping windows: window baseIdx+k starts at offset k
               const offset = newIdx - pl.baseIdx;
               const slice = pl.allReordered.slice(offset, offset + pl.winSize);
               if (slice.length > 0) {
                 const newItems = slice.map((v, i) => makeItem(v, i, win.windowNumber));
                 win = { ...win, reorderedBlocks: chunkIntoBlocks(newItems, pl.blockSize), isReordered: true };
               }
-              // Clear pending when last expected window arrives
               if (newIdx === pl.baseIdx + pl.totalWindows) {
                 pendingLandmarkRef.current = null;
               }
@@ -175,20 +171,12 @@ export function useLiveStream() {
       const winSize = windowItems.length;
       const buf = windowBufferRef.current;
 
-      // Pre-add the full intended landmark range (not just what's buffered)
       const intendedIndices = [];
       for (let ni = idx + 1; ni <= idx + landmarkSize; ni++) {
         intendedIndices.push(ni);
       }
       setLandmarkLoadedIndices(prev => new Set([...prev, ...intendedIndices]));
 
-      // The window slides one item at a time, so consecutive windows share
-      // winSize-1 items and window ni contributes exactly one new item: its
-      // last. Concatenating every item of each window instead would hand bfair
-      // the same records many times over (6 windows of 20 carry only 25
-      // distinct items), and the reordered slices would then repeat some
-      // records and drop others. This mirrors the consumer, which polls one
-      // new message per landmark step.
       const landmarkItems = [];
       const bufferedLandmarkIndices = [];
       for (const ni of intendedIndices) {
@@ -216,7 +204,6 @@ export function useLiveStream() {
       const data = await r.json();
       if (data.status === 'ok') {
         const allReordered = data.reordered_items;
-        // Update already-buffered windows immediately
         setWindowBuffer(prev => {
           const next = prev.map((w, i) => {
             if (i === idx) {
@@ -225,7 +212,6 @@ export function useLiveStream() {
             }
             const lPos = bufferedLandmarkIndices.indexOf(i);
             if (lPos !== -1) {
-              // Windows overlap by one item, so window idx+k starts at offset k
               const start = lPos + 1;
               const slice = allReordered.slice(start, start + winSize).map((v, j) => makeItem(v, j, w.windowNumber));
               if (slice.length > 0) {
@@ -237,7 +223,6 @@ export function useLiveStream() {
           windowBufferRef.current = next;
           return next;
         });
-        // Store pending so future streaming windows in the range get their slice too
         const lastBufferedLandmark = bufferedLandmarkIndices.length > 0
           ? bufferedLandmarkIndices[bufferedLandmarkIndices.length - 1]
           : idx;
@@ -254,10 +239,6 @@ export function useLiveStream() {
         const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
         const counts = bpw ? ` — ${before} → ${after} of ${bpw} blocks fair.` : '.';
         if (data.reorder_feasible === false) {
-          // bfair returns the optimum for the items available, so falling short
-          // here means no reordering can satisfy these constraints. Leftover
-          // items land grouped at the tail; say so rather than let that read
-          // as a broken reorder.
           setReorderStatus({
             phase: 'infeasible',
             message: `These constraints cannot be fully met by this data${counts}`
