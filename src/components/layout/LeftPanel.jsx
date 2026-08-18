@@ -269,7 +269,7 @@ export default function LeftPanel({ session }) {
         )}
 
         {/* Reorder — only for unfair, non-monitor-only, not yet reordered */}
-        {canReorder && !liveStream.reordered && (
+        {canReorder && !liveStream.reordered && !needsLandmark && (
           <button
             onClick={() => liveStream.triggerInternalReorder(currentWindow, liveStream.currentIdx, config.constraints)}
             className="w-full py-3 px-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-lg text-base transition-colors"
