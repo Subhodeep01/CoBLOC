@@ -72,6 +72,8 @@ export function useLiveStream() {
 
   const wsRef = useRef(null);
   const windowBufferRef = useRef([]);
+  // Stores pending landmark reorder so late-arriving windows get their slice applied
+  const pendingLandmarkRef = useRef(null); // { baseIdx, winSize, blockSize, allReordered }
 
   useEffect(() => {
     fetch(`${API}/api/datasets`)
@@ -97,10 +99,25 @@ export function useLiveStream() {
         try { msg = JSON.parse(data); } catch { return; }
 
         if (msg.type === 'window_update') {
-          const win = buildWindow(msg);
+          let win = buildWindow(msg);
           setLatestMetrics(msg.metrics || {});
           setWindowBuffer(prev => {
             if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
+            const newIdx = prev.length;
+            // Apply pending landmark reorder to this window if it falls in range
+            const pl = pendingLandmarkRef.current;
+            if (pl && newIdx > pl.baseIdx && newIdx <= pl.baseIdx + pl.totalWindows) {
+              const offset = (newIdx - pl.baseIdx) * pl.winSize;
+              const slice = pl.allReordered.slice(offset, offset + pl.winSize);
+              if (slice.length > 0) {
+                const newItems = slice.map((v, i) => makeItem(v, i, win.windowNumber));
+                win = { ...win, reorderedBlocks: chunkIntoBlocks(newItems, pl.blockSize), isReordered: true };
+              }
+              // Clear pending when last expected window arrives
+              if (newIdx === pl.baseIdx + pl.totalWindows) {
+                pendingLandmarkRef.current = null;
+              }
+            }
             const next = [...prev.slice(-499), win];
             windowBufferRef.current = next;
             if (prev.length === 0) {
@@ -154,21 +171,26 @@ export function useLiveStream() {
 
     try {
       const windowItems = currentWindow.items.map(i => i.raw);
+      const winSize = windowItems.length;
       const buf = windowBufferRef.current;
 
-      // landmark size = number of windows to look ahead
-      const landmarkItems = [];
-      const landmarkIndices = [];
-      for (let ni = idx + 1; ni <= idx + landmarkSize && ni < buf.length; ni++) {
-        landmarkIndices.push(ni);
-        for (const item of buf[ni].items) {
-          landmarkItems.push(item.raw);
-        }
+      // Pre-add the full intended landmark range (not just what's buffered)
+      const intendedIndices = [];
+      for (let ni = idx + 1; ni <= idx + landmarkSize; ni++) {
+        intendedIndices.push(ni);
       }
+      setLandmarkLoadedIndices(prev => new Set([...prev, ...intendedIndices]));
 
-      // Mark those window indices as accessible in the navigator
-      if (landmarkIndices.length > 0) {
-        setLandmarkLoadedIndices(prev => new Set([...prev, ...landmarkIndices]));
+      // Gather items from buffered landmark windows
+      const landmarkItems = [];
+      const bufferedLandmarkIndices = [];
+      for (const ni of intendedIndices) {
+        if (ni < buf.length) {
+          bufferedLandmarkIndices.push(ni);
+          for (const item of buf[ni].items) {
+            landmarkItems.push(item.raw);
+          }
+        }
       }
 
       const combined = [...windowItems, ...landmarkItems];
@@ -178,7 +200,7 @@ export function useLiveStream() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           window_items: combined,
-          window_size: windowItems.length,
+          window_size: winSize,
           block_size: currentWindow.blockSize,
           proportions,
           attribute_column: attributeColumn,
@@ -187,17 +209,56 @@ export function useLiveStream() {
 
       const data = await r.json();
       if (data.status === 'ok') {
-        const newItems = data.reordered_items.map((v, i) => makeItem(v, i, currentWindow.windowNumber));
-        const newBlocks = chunkIntoBlocks(newItems, currentWindow.blockSize);
+        const allReordered = data.reordered_items;
+        // Update already-buffered windows immediately
         setWindowBuffer(prev => {
-          const next = prev.map((w, i) =>
-            i === idx ? { ...w, reorderedBlocks: newBlocks, isReordered: true } : w
-          );
+          const next = prev.map((w, i) => {
+            if (i === idx) {
+              const slice = allReordered.slice(0, winSize).map((v, j) => makeItem(v, j, w.windowNumber));
+              return { ...w, reorderedBlocks: chunkIntoBlocks(slice, w.blockSize), isReordered: true };
+            }
+            const lPos = bufferedLandmarkIndices.indexOf(i);
+            if (lPos !== -1) {
+              const start = (lPos + 1) * winSize;
+              const slice = allReordered.slice(start, start + winSize).map((v, j) => makeItem(v, j, w.windowNumber));
+              if (slice.length > 0) {
+                return { ...w, reorderedBlocks: chunkIntoBlocks(slice, w.blockSize), isReordered: true };
+              }
+            }
+            return w;
+          });
           windowBufferRef.current = next;
           return next;
         });
+        // Store pending so future streaming windows in the range get their slice too
+        const lastBufferedLandmark = bufferedLandmarkIndices.length > 0
+          ? bufferedLandmarkIndices[bufferedLandmarkIndices.length - 1]
+          : idx;
+        if (lastBufferedLandmark < idx + landmarkSize) {
+          pendingLandmarkRef.current = {
+            baseIdx: idx,
+            winSize,
+            blockSize: currentWindow.blockSize,
+            allReordered,
+            totalWindows: landmarkSize,
+          };
+        }
         setReordered(true);
-        setReorderStatus({ phase: 'done', message: `Reordered using landmark size ${landmarkSize}.` });
+        const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
+        const counts = bpw ? ` — ${before} → ${after} of ${bpw} blocks fair.` : '.';
+        if (data.reorder_feasible === false) {
+          // bfair returns the optimum for the items available, so falling short
+          // here means no reordering can satisfy these constraints. Leftover
+          // items land grouped at the tail; say so rather than let that read
+          // as a broken reorder.
+          setReorderStatus({
+            phase: 'infeasible',
+            message: `These constraints cannot be fully met by this data${counts}`
+              + ' Items that cannot fit a fair block are grouped at the end of the window.',
+          });
+        } else {
+          setReorderStatus({ phase: 'done', message: `Reordered using landmark size ${landmarkSize}${counts}` });
+        }
       } else {
         setReorderStatus({ phase: 'error', message: data.message || 'Reorder failed.' });
       }
@@ -209,6 +270,7 @@ export function useLiveStream() {
   const startStream = useCallback(async (config) => {
     setWindowBuffer([]);
     windowBufferRef.current = [];
+    pendingLandmarkRef.current = null;
     setCurrentIdx(-1);
     setMaxReachedIdx(-1);
     setReordered(false);
