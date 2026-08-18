@@ -127,6 +127,9 @@ export function useLiveStream() {
           setRunning(false);
         } else if (msg.type === 'produce_done') {
           setProducing(false);
+        } else if (msg.type === 'produce_error') {
+          setProducing(false);
+          setReorderStatus({ phase: 'error', message: `Could not produce data: ${msg.message}` });
         } else if (msg.type === 'error') {
           setRunning(false);
         }
