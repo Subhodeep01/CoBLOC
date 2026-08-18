@@ -1,0 +1,403 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { chunkIntoBlocks } from '../utils/windowOps';
+
+const API = 'http://localhost:8000';
+const WS_URL = 'ws://localhost:8000/ws/metrics';
+
+function makeItem(item, index, windowNumber) {
+  const value = typeof item === 'object' ? item.value : item;
+  const raw = typeof item === 'object' ? item : {};
+  const displayTitle = raw._display_title || `#${index + 1}`;
+  return {
+    id: `live-${windowNumber}-${index}`,
+    genre: String(value),
+    title: displayTitle,
+    year: String(value),
+    liveItem: true,
+    raw,
+  };
+}
+
+function buildWindow(msg) {
+  const items = (msg.window_items || []).map((v, i) => makeItem(v, i, msg.window_number));
+  const blockSize = msg.block_size || 5;
+  const blocks = chunkIntoBlocks(items, blockSize);
+  const reorderedItems = (msg.reordered_items || msg.window_items || []).map((v, i) => makeItem(v, i, msg.window_number));
+  const reorderedBlocks = chunkIntoBlocks(reorderedItems, blockSize);
+  return {
+    windowNumber: msg.window_number,
+    items,
+    blocks,
+    reorderedBlocks,
+    isFair: msg.is_fair,
+    fairText: msg.fair_text || '',
+    preprocessingMs: msg.preprocessing_ms,
+    queryMs: msg.query_ms,
+    metrics: msg.metrics || {},
+    attribute: msg.attribute || '',
+    blockSize,
+    isReordered: false,
+  };
+}
+
+function checkAllBlocksFair(blocks, constraints, blockSize) {
+  return blocks.every(block => {
+    const counts = {};
+    for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
+    return Object.entries(constraints).every(([g, pct]) => {
+      if (!pct) return true;
+      const p = (parseInt(pct) || 0) / 100;
+      const floor = Math.floor(p * blockSize);
+      const ceil = Math.ceil(p * blockSize);
+      const c = counts[g] || 0;
+      return c >= floor && c <= ceil;
+    });
+  });
+}
+
+export function useLiveStream() {
+  const [connected, setConnected] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [producing, setProducing] = useState(false);
+  const [apiDatasets, setApiDatasets] = useState([]);
+  const [windowBuffer, setWindowBuffer] = useState([]);
+  const [currentIdx, setCurrentIdx] = useState(-1);
+  const [maxReachedIdx, setMaxReachedIdx] = useState(-1);
+  const [reordered, setReordered] = useState(false);
+  const [reorderStatus, setReorderStatus] = useState(null);
+  const [landmarkLoadedIndices, setLandmarkLoadedIndices] = useState(new Set());
+  const [latestMetrics, setLatestMetrics] = useState({});
+  const [producedTopic, setProducedTopic] = useState(null);
+  const [producedDataset, setProducedDataset] = useState(null);
+
+  const wsRef = useRef(null);
+  const windowBufferRef = useRef([]);
+  // Stores pending landmark reorder so late-arriving windows get their slice applied
+  const pendingLandmarkRef = useRef(null); // { baseIdx, winSize, blockSize, allReordered }
+
+  useEffect(() => {
+    fetch(`${API}/api/datasets`)
+      .then(r => r.json())
+      .then(setApiDatasets)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let reconnectTimer;
+
+    function connect() {
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+      ws.onopen = () => setConnected(true);
+      ws.onclose = () => {
+        setConnected(false);
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+      ws.onerror = () => ws.close();
+      ws.onmessage = ({ data }) => {
+        let msg;
+        try { msg = JSON.parse(data); } catch { return; }
+
+        if (msg.type === 'window_update') {
+          let win = buildWindow(msg);
+          setLatestMetrics(msg.metrics || {});
+          setWindowBuffer(prev => {
+            if (prev.some(w => w.windowNumber === win.windowNumber)) return prev;
+            const newIdx = prev.length;
+            // Apply pending landmark reorder to this window if it falls in range
+            const pl = pendingLandmarkRef.current;
+            if (pl && newIdx > pl.baseIdx && newIdx <= pl.baseIdx + pl.totalWindows) {
+              // Overlapping windows: window baseIdx+k starts at offset k
+              const offset = newIdx - pl.baseIdx;
+              const slice = pl.allReordered.slice(offset, offset + pl.winSize);
+              if (slice.length > 0) {
+                const newItems = slice.map((v, i) => makeItem(v, i, win.windowNumber));
+                win = { ...win, reorderedBlocks: chunkIntoBlocks(newItems, pl.blockSize), isReordered: true };
+              }
+              // Clear pending when last expected window arrives
+              if (newIdx === pl.baseIdx + pl.totalWindows) {
+                pendingLandmarkRef.current = null;
+              }
+            }
+            const next = [...prev.slice(-499), win];
+            windowBufferRef.current = next;
+            if (prev.length === 0) {
+              setCurrentIdx(0);
+              setMaxReachedIdx(0);
+            }
+            return next;
+          });
+        } else if (msg.type === 'done') {
+          setRunning(false);
+        } else if (msg.type === 'produce_done') {
+          setProducing(false);
+        } else if (msg.type === 'error') {
+          setRunning(false);
+        }
+      };
+    }
+
+    connect();
+    return () => {
+      clearTimeout(reconnectTimer);
+      wsRef.current?.close();
+    };
+  }, []);
+
+  const triggerInternalReorder = useCallback((currentWindow, idx, constraints) => {
+    if (!currentWindow) return;
+    const reordBlocks = currentWindow.reorderedBlocks || currentWindow.blocks;
+    const allFair = checkAllBlocksFair(reordBlocks, constraints, currentWindow.blockSize);
+
+    setReordered(true);
+    setWindowBuffer(prev => {
+      const next = prev.map((w, i) => i === idx ? { ...w, isReordered: true } : w);
+      windowBufferRef.current = next;
+      return next;
+    });
+
+    if (allFair) {
+      setReorderStatus({ phase: 'done', message: 'Window reordered successfully.' });
+    } else {
+      setReorderStatus({
+        phase: 'needs_landmark',
+        message: 'Internal reordering could not achieve full fairness. Enter a landmark size to try with look-ahead.',
+      });
+    }
+  }, []);
+
+  const triggerLandmarkReorder = useCallback(async (currentWindow, idx, landmarkSize, proportions, attributeColumn) => {
+    if (!currentWindow || !landmarkSize) return;
+    setReorderStatus({ phase: 'loading', message: 'Reordering with landmark… Please wait.' });
+
+    try {
+      const windowItems = currentWindow.items.map(i => i.raw);
+      const winSize = windowItems.length;
+      const buf = windowBufferRef.current;
+
+      // Pre-add the full intended landmark range (not just what's buffered)
+      const intendedIndices = [];
+      for (let ni = idx + 1; ni <= idx + landmarkSize; ni++) {
+        intendedIndices.push(ni);
+      }
+      setLandmarkLoadedIndices(prev => new Set([...prev, ...intendedIndices]));
+
+      // The window slides one item at a time, so consecutive windows share
+      // winSize-1 items and window ni contributes exactly one new item: its
+      // last. Concatenating every item of each window instead would hand bfair
+      // the same records many times over (6 windows of 20 carry only 25
+      // distinct items), and the reordered slices would then repeat some
+      // records and drop others. This mirrors the consumer, which polls one
+      // new message per landmark step.
+      const landmarkItems = [];
+      const bufferedLandmarkIndices = [];
+      for (const ni of intendedIndices) {
+        if (ni < buf.length) {
+          bufferedLandmarkIndices.push(ni);
+          const items = buf[ni].items;
+          if (items.length > 0) landmarkItems.push(items[items.length - 1].raw);
+        }
+      }
+
+      const combined = [...windowItems, ...landmarkItems];
+
+      const r = await fetch(`${API}/api/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          window_items: combined,
+          window_size: winSize,
+          block_size: currentWindow.blockSize,
+          proportions,
+          attribute_column: attributeColumn,
+        }),
+      });
+
+      const data = await r.json();
+      if (data.status === 'ok') {
+        const allReordered = data.reordered_items;
+        // Update already-buffered windows immediately
+        setWindowBuffer(prev => {
+          const next = prev.map((w, i) => {
+            if (i === idx) {
+              const slice = allReordered.slice(0, winSize).map((v, j) => makeItem(v, j, w.windowNumber));
+              return { ...w, reorderedBlocks: chunkIntoBlocks(slice, w.blockSize), isReordered: true };
+            }
+            const lPos = bufferedLandmarkIndices.indexOf(i);
+            if (lPos !== -1) {
+              // Windows overlap by one item, so window idx+k starts at offset k
+              const start = lPos + 1;
+              const slice = allReordered.slice(start, start + winSize).map((v, j) => makeItem(v, j, w.windowNumber));
+              if (slice.length > 0) {
+                return { ...w, reorderedBlocks: chunkIntoBlocks(slice, w.blockSize), isReordered: true };
+              }
+            }
+            return w;
+          });
+          windowBufferRef.current = next;
+          return next;
+        });
+        // Store pending so future streaming windows in the range get their slice too
+        const lastBufferedLandmark = bufferedLandmarkIndices.length > 0
+          ? bufferedLandmarkIndices[bufferedLandmarkIndices.length - 1]
+          : idx;
+        if (lastBufferedLandmark < idx + landmarkSize) {
+          pendingLandmarkRef.current = {
+            baseIdx: idx,
+            winSize,
+            blockSize: currentWindow.blockSize,
+            allReordered,
+            totalWindows: landmarkSize,
+          };
+        }
+        setReordered(true);
+        const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
+        const counts = bpw ? ` — ${before} → ${after} of ${bpw} blocks fair.` : '.';
+        if (data.reorder_feasible === false) {
+          // bfair returns the optimum for the items available, so falling short
+          // here means no reordering can satisfy these constraints. Leftover
+          // items land grouped at the tail; say so rather than let that read
+          // as a broken reorder.
+          setReorderStatus({
+            phase: 'infeasible',
+            message: `These constraints cannot be fully met by this data${counts}`
+              + ' Items that cannot fit a fair block are grouped at the end of the window.',
+          });
+        } else {
+          setReorderStatus({ phase: 'done', message: `Reordered using landmark size ${landmarkSize}${counts}` });
+        }
+      } else {
+        setReorderStatus({ phase: 'error', message: data.message || 'Reorder failed.' });
+      }
+    } catch (e) {
+      setReorderStatus({ phase: 'error', message: e.message });
+    }
+  }, []);
+
+  const startStream = useCallback(async (config) => {
+    setWindowBuffer([]);
+    windowBufferRef.current = [];
+    pendingLandmarkRef.current = null;
+    setCurrentIdx(-1);
+    setMaxReachedIdx(-1);
+    setReordered(false);
+    setReorderStatus(null);
+    setLandmarkLoadedIndices(new Set());
+
+    const blockSize = parseInt(config.blockSize) || 5;
+    const fairnessCounts = {};
+    for (const [k, pct] of Object.entries(config.constraints)) {
+      fairnessCounts[k] = Math.max(0, Math.floor((parseInt(pct) || 0) / 100 * blockSize));
+    }
+
+    const rawProportions = {};
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseInt(v) || 0), 0);
+    if (totalPct > 0) {
+      for (const [k, pct] of Object.entries(config.constraints || {})) {
+        rawProportions[k] = (parseInt(pct) || 0) / totalPct;
+      }
+    }
+
+    const body = {
+      topic_name: config.kafkaTopic,
+      window_size: parseInt(config.windowSize) || 10,
+      block_size: blockSize,
+      max_windows: parseInt(config.maxWindows) || 50,
+      fairness: fairnessCounts,
+      proportions: rawProportions,
+      landmark_size: parseInt(config.landmarkSize) || 5,
+      attribute_column: config.attributeColumn || 'GENDER',
+      delay_ms: config.delayMs ?? 0,
+    };
+
+    const r = await fetch(`${API}/api/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.status !== 'error') setRunning(true);
+  }, []);
+
+  const stopStream = useCallback(() => {
+    fetch(`${API}/api/stop`, { method: 'POST' });
+    setRunning(false);
+  }, []);
+
+  const produceData = useCallback(async (datasetName) => {
+    setProducing(true);
+    setProducedTopic(null);
+    setProducedDataset(null);
+    const r = await fetch(`${API}/api/produce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataset_name: datasetName }),
+    });
+    const data = await r.json();
+    if (data.status === 'started' && data.topic) {
+      setProducedTopic(data.topic);
+      setProducedDataset(datasetName);
+    } else {
+      setProducing(false);
+    }
+  }, []);
+
+  const goNext = useCallback(() => {
+    setReorderStatus(null);
+    setCurrentIdx(i => {
+      const next = i + 1;
+      setMaxReachedIdx(m => Math.max(m, next));
+      const win = windowBufferRef.current[next];
+      setReordered(win?.isReordered ?? false);
+      return next;
+    });
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setReorderStatus(null);
+    setCurrentIdx(i => {
+      const prev = Math.max(i - 1, 0);
+      const win = windowBufferRef.current[prev];
+      setReordered(win?.isReordered ?? false);
+      return prev;
+    });
+  }, []);
+
+  const goToIdx = useCallback((idx) => {
+    setReorderStatus(null);
+    const win = windowBufferRef.current[idx];
+    setReordered(win?.isReordered ?? false);
+    setCurrentIdx(idx);
+  }, []);
+
+  const currentWindow = windowBuffer[currentIdx] ?? null;
+  const canNext = currentIdx >= 0 && currentIdx < windowBuffer.length - 1;
+  const canPrev = currentIdx > 0;
+
+  return {
+    connected,
+    running,
+    producing,
+    apiDatasets,
+    currentWindow,
+    windowBuffer,
+    currentIdx,
+    maxReachedIdx,
+    landmarkLoadedIndices,
+    canNext,
+    canPrev,
+    latestMetrics,
+    producedTopic,
+    producedDataset,
+    startStream,
+    stopStream,
+    produceData,
+    goNext,
+    goPrev,
+    goToIdx,
+    triggerInternalReorder,
+    triggerLandmarkReorder,
+    reordered,
+    reorderStatus,
+  };
+}

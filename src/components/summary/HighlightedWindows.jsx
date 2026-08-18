@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { genreDistribution } from '../../utils/metrics';
 import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
@@ -26,7 +27,50 @@ function computeSerendipitousBlock(windows) {
   return best;
 }
 
+function DistBar({ blocks, label }) {
+  const allItems = blocks.flat();
+  const dist = genreDistribution(allItems);
+  const genres = Object.keys(dist).sort();
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+      <div className="flex h-5 w-full rounded overflow-hidden border border-slate-200">
+        {genres.map(g => {
+          const pct = dist[g] || 0;
+          const color = GENRE_COLORS[g]?.bg || '#94a3b8';
+          return (
+            <div
+              key={g}
+              style={{ width: `${pct}%`, backgroundColor: color }}
+              title={`${GENRE_LABELS[g] ?? g}: ${pct}%`}
+              className="flex items-center justify-center"
+            >
+              {pct >= 12 && (
+                <span className="text-[10px] font-bold text-white drop-shadow">{pct}%</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {genres.map(g => {
+          const pct = dist[g] || 0;
+          const color = GENRE_COLORS[g]?.bg || '#94a3b8';
+          return (
+            <span key={g} className="flex items-center gap-1.5 text-xs text-slate-600">
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
+              {GENRE_LABELS[g] ?? g}: <span className="font-semibold text-slate-800">{pct}%</span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function HighlightedWindows({ windows, monitorOnly }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+
   if (monitorOnly) {
     const serendipitous = computeSerendipitousBlock(windows);
     if (!serendipitous) return null;
@@ -61,26 +105,9 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
     );
   }
 
-  function computeDistDelta(preBlocks, postBlocks) {
-    const len = Math.min(preBlocks.length, postBlocks.length);
-    if (len === 0) return 0;
-    let total = 0;
-    for (let i = 0; i < len; i++) {
-      const pre = genreDistribution(preBlocks[i]);
-      const post = genreDistribution(postBlocks[i]);
-      const genres = [...new Set([...Object.keys(pre), ...Object.keys(post)])];
-      for (const g of genres) {
-        total += Math.abs((post[g] || 0) - (pre[g] || 0));
-      }
-    }
-    return total / (len * 200);
-  }
-
   const reordered = windows
     .map((w, i) => ({ ...w, originalIndex: i }))
-    .filter(w => w.isReordered && w.preReorderBlocks != null)
-    .map(w => ({ ...w, distDelta: computeDistDelta(w.preReorderBlocks, w.blocks) }))
-    .sort((a, b) => b.distDelta - a.distDelta);
+    .filter(w => w.isReordered && w.reorderedBlocks != null);
 
   if (reordered.length === 0) {
     return (
@@ -90,41 +117,63 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
     );
   }
 
+  const safeIdx = Math.min(activeIdx, reordered.length - 1);
+  const active = reordered[safeIdx];
+
   return (
     <div className="mt-6">
-      <h3 className="text-2xl font-bold text-slate-900 mb-4">Most Serendipitous Moment</h3>
-      <div className="space-y-3">
-        {reordered.map((w) => {
-          const pct = Math.round(w.distDelta * 100);
-          const isHighImpact = pct > 50;
-          return (
-            <div
-              key={w.windowIndex}
-              className={`flex items-center justify-between p-4 rounded-xl border ${
-                isHighImpact ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'
-              }`}
-            >
-              <div>
-                <span className="text-lg text-slate-900 font-semibold">
-                  Window {w.originalIndex + 1}
-                </span>
-                {isHighImpact && (
-                  <span className="ml-2 text-base text-amber-600 font-semibold">HIGH IMPACT</span>
-                )}
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-32 bg-slate-100 rounded-full h-2.5">
-                  <div
-                    className={`h-2.5 rounded-full ${isHighImpact ? 'bg-amber-400' : 'bg-violet-400'}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className="text-base text-slate-500 w-12 text-right">{pct}%</span>
-              </div>
-            </div>
-          );
-        })}
+      <h3 className="text-2xl font-bold text-slate-900 mb-4">Reordered Windows — Before &amp; After</h3>
+
+      {/* Dot navigator */}
+      <div className="flex items-center gap-2 mb-4">
+        {reordered.map((w, i) => (
+          <button
+            key={w.originalIndex}
+            onClick={() => setActiveIdx(i)}
+            className={`flex flex-col items-center gap-1 group`}
+          >
+            <span className={`w-8 h-8 rounded-full text-xs font-semibold flex items-center justify-center transition-colors ${
+              i === safeIdx
+                ? 'bg-violet-600 text-white shadow'
+                : 'bg-slate-200 text-slate-600 hover:bg-violet-200'
+            }`}>
+              {w.originalIndex + 1}
+            </span>
+          </button>
+        ))}
       </div>
+
+      {/* Active window before/after */}
+      <div className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold text-slate-900">Window {active.originalIndex + 1}</span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Reordered</span>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <DistBar blocks={active.blocks} label="Before" />
+          <DistBar blocks={active.reorderedBlocks} label="After" />
+        </div>
+      </div>
+
+      {reordered.length > 1 && (
+        <div className="flex justify-between mt-3">
+          <button
+            onClick={() => setActiveIdx(i => Math.max(0, i - 1))}
+            disabled={safeIdx === 0}
+            className="px-4 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg font-medium text-slate-700"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm text-slate-400">{safeIdx + 1} of {reordered.length}</span>
+          <button
+            onClick={() => setActiveIdx(i => Math.min(reordered.length - 1, i + 1))}
+            disabled={safeIdx === reordered.length - 1}
+            className="px-4 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-lg font-medium text-slate-700"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

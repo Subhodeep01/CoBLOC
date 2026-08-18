@@ -4,16 +4,19 @@ import LandmarkRecommendation from './LandmarkRecommendation';
 import ConstraintsRecommendation from './ConstraintsRecommendation';
 import { TOPICS } from '../../constants/topics';
 
-const FAIRNESS_TOLERANCE = 10;
-
 function countFairBlocks(windows, constraints) {
   return windows.flatMap(w => w.blocks).filter(block => {
+    const blockSize = block.length || 1;
     const counts = {};
     for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
-    const total = block.length || 1;
-    return Object.entries(constraints).every(([g, target]) =>
-      Math.abs(Math.round((counts[g] || 0) / total * 100) - target) <= FAIRNESS_TOLERANCE
-    );
+    return Object.entries(constraints).every(([g, pct]) => {
+      if (!pct) return true;
+      const p = (parseInt(pct) || 0) / 100;
+      const floor = Math.floor(p * blockSize);
+      const ceil = Math.ceil(p * blockSize);
+      const c = counts[g] || 0;
+      return c >= floor && c <= ceil;
+    });
   }).length;
 }
 
@@ -62,7 +65,7 @@ export default function SummaryPage({ session }) {
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">
-            {state.config.topic === 'Hospital Admissions Data' ? 'Patients Seen' : 'Movies Seen'}
+            {(TOPICS[state.config.topic]?.itemLabel ?? 'items')} Seen
           </p>
           <p className="text-5xl font-bold text-emerald-600 mt-2">
             {state.windows.length > 0 ? state.config.windowSize + (state.windows.length - 1) : 0}

@@ -1,18 +1,5 @@
-import movies from '../data/mockMovies';
-import patients from '../data/hospitalData';
-import { DEMO_POOL_S01, DEMO_W1_REORDERED, DEMO_W2_REORDERED, DEMO_POOL_S2 } from '../data/demoMoviesData';
-import { chunkIntoBlocks, createNextWindow } from '../utils/windowOps';
-import { reorderBlocks, computeReorderDelta } from '../utils/reorder';
+import { chunkIntoBlocks } from '../utils/windowOps';
 import { TOPICS } from '../constants/topics';
-
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 export function sessionReducer(state, action) {
   switch (action.type) {
@@ -24,59 +11,7 @@ export function sessionReducer(state, action) {
     }
 
     case 'START_MONITOR': {
-      const isMoviesTopic = state.config.topic === 'Movies';
-      const isHospitalTopic = state.config.topic === 'Hospital Admissions Data';
-      const isPrimaryDiagnosis = isHospitalTopic && state.config.protectedAttribute === 'Primary Diagnosis';
-
-      const protectedField = state.config.protectedAttributeField ?? 'genre';
-      const isRatingAttribute = isMoviesTopic && protectedField === 'ratingCategory';
-
-      let pool;
-      if (isMoviesTopic && !isRatingAttribute) {
-        pool = DEMO_POOL_S01;
-      } else if (isMoviesTopic && isRatingAttribute) {
-        pool = shuffleArray(movies.map(m => ({
-          ...m,
-          genre: m.rating >= 8.0 ? 'high' : m.rating >= 7.0 ? 'medium' : 'low',
-        })));
-      } else if (isPrimaryDiagnosis) {
-        pool = shuffleArray(patients.map(p => {
-          const primary = (p.diagnoses?.[0] || '').toLowerCase();
-          const diagnosisGenre =
-            primary.includes('acs') ? 'acs' :
-            primary.includes('heart failure') ? 'heart-failure' :
-            primary.includes('anaemia') ? 'anaemia' :
-            'acs';
-          return { ...p, genre: diagnosisGenre };
-        }));
-      } else {
-        pool = shuffleArray(isHospitalTopic ? patients : movies);
-      }
-
-      const { windowSize, blockSize } = state.config;
-      const firstMovies = pool.slice(0, windowSize);
-      const blocks = chunkIntoBlocks(firstMovies, blockSize);
-
-      return {
-        ...state,
-        phase: 'streaming',
-        moviePool: pool,
-        poolCursor: windowSize,
-        currentWindowIndex: 0,
-        windows: [{
-          windowIndex: 0,
-          movies: firstMovies,
-          blocks,
-          isReordered: false,
-          preReorderBlocks: null,
-          reorderDelta: null,
-        }],
-        windowHistory: [],
-        landmarkCounter: 0,
-        landmarkActive: false,
-        activeBlockIndex: 0,
-        demoScenario: 0,
-      };
+      return { ...state, phase: 'streaming' };
     }
 
     case 'NEXT_WINDOW': {
@@ -208,12 +143,26 @@ export function sessionReducer(state, action) {
     }
 
     case 'END_SESSION': {
+      const liveWindows = action.payload?.liveWindows;
+      const resolvedWindows = liveWindows?.length > 0
+        ? liveWindows.map((w, i) => ({
+            windowIndex: i,
+            movies: w.items,
+            blocks: w.blocks,
+            reorderedBlocks: w.reorderedBlocks || null,
+            isReordered: w.isReordered || false,
+            preReorderBlocks: w.isReordered ? w.blocks : null,
+            reorderDelta: null,
+            isLandmarkAffected: false,
+          }))
+        : state.windows;
+
       const monitorOnly = TOPICS[state.config.topic]?.monitorOnly ?? false;
       const TOLERANCE = 10;
+      const constraints = state.config.constraints;
 
       if (monitorOnly) {
-        const allBlocks = state.windows.flatMap(w => w.blocks);
-        const constraints = state.config.constraints;
+        const allBlocks = resolvedWindows.flatMap(w => w.blocks);
         const fairBlockCount = allBlocks.filter(block => {
           const counts = {};
           for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
@@ -228,18 +177,17 @@ export function sessionReducer(state, action) {
           constraints: { ...state.config.constraints },
           fairBlockCount,
           totalBlockCount: allBlocks.length,
-          windowCount: state.windows.length,
+          windowCount: resolvedWindows.length,
           timestamp: Date.now(),
         });
         localStorage.setItem('cofads_monitor_sessions', JSON.stringify(monitorSessions));
       } else {
         const existing = JSON.parse(localStorage.getItem('cofads_sessions') || '[]');
-        const reorderedWindows = state.windows.filter(w => w.isReordered);
+        const reorderedWindows = resolvedWindows.filter(w => w.isReordered);
         const avgDelta = reorderedWindows.length > 0
           ? reorderedWindows.reduce((s, w) => s + (w.reorderDelta || 0), 0) / reorderedWindows.length
           : 0;
-        const allBlocks = state.windows.flatMap(w => w.blocks);
-        const constraints = state.config.constraints;
+        const allBlocks = resolvedWindows.flatMap(w => w.blocks);
         const fairBlockCount = allBlocks.filter(block => {
           const counts = {};
           for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
@@ -253,13 +201,13 @@ export function sessionReducer(state, action) {
           avgReorderDelta: avgDelta,
           fairBlockCount,
           totalBlockCount: allBlocks.length,
-          windowCount: state.windows.length,
+          windowCount: resolvedWindows.length,
           timestamp: Date.now(),
         });
         localStorage.setItem('cofads_sessions', JSON.stringify(existing));
       }
 
-      return { ...state, phase: 'summary' };
+      return { ...state, windows: resolvedWindows, phase: 'summary' };
     }
 
     case 'RESTART': {

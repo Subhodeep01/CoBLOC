@@ -1,9 +1,11 @@
 import { useReducer, useCallback, useState, useRef } from 'react';
 import { sessionReducer } from '../state/sessionReducer';
 import { initialState } from '../state/initialState';
+import { useLiveStream } from './useLiveStream';
 
 export function useSession() {
   const [state, dispatch] = useReducer(sessionReducer, initialState);
+  const liveStream = useLiveStream();
   const [reorderStatus, setReorderStatus] = useState(null);
   const [landmarkPending, setLandmarkPendingState] = useState(false);
   const landmarkPendingRef = useRef(false);
@@ -65,8 +67,8 @@ export function useSession() {
     dispatch({ type: 'SET_ACTIVE_BLOCK', payload: index });
   }, []);
 
-  const endSession = useCallback(() => {
-    dispatch({ type: 'END_SESSION' });
+  const endSession = useCallback((liveWindows) => {
+    dispatch({ type: 'END_SESSION', payload: { liveWindows } });
   }, []);
 
   const restart = useCallback(() => {
@@ -77,6 +79,7 @@ export function useSession() {
     state,
     reorderStatus,
     landmarkPending,
+    liveStream,
     setConfig,
     startMonitor,
     nextWindow,
