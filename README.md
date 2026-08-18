@@ -1,48 +1,113 @@
-# UI CoBLOC
+# CoBLOC
 
-A React + Vite UI for CoBLOC.
+Continuous Block Level Fairness on Data Streams — a React + Vite UI for the
+[Streaming-p-Fairness](https://github.com/Subhodeep01/Streaming-p-Fairness) engine.
 
-## Getting Started
+The UI streams records through Kafka, checks each sliding window for p-fairness,
+and can reorder a window with `bfair` to make its blocks fair.
+
+## What you need running
+
+Three things, in this order. The UI on its own will just sit at "Connecting to
+backend…" — it needs the other two.
+
+| | what | where |
+|---|---|---|
+| 1 | Kafka + Zookeeper | Docker, port 9092 |
+| 2 | FastAPI backend | `Streaming-p-Fairness`, port 8000 |
+| 3 | This UI | port 5173 |
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or later recommended)
+- [Node.js](https://nodejs.org/) 18+
+- Python 3.11+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop), running
 
-### Installation
+## Setup
+
+Clone both repos side by side:
+
+```bash
+git clone https://github.com/Subhodeep01/Streaming-p-Fairness.git
+git clone https://github.com/Subhodeep01/CoBLOC.git
+```
+
+Install the backend dependencies:
+
+```bash
+pip install -r Streaming-p-Fairness/api/requirements.txt
+```
+
+Download the datasets from [OSF](https://osf.io/q4fu2/overview?view_only=04e3328f2c514ee3b8f4a4822f1c9a23)
+and put the CSVs in `Streaming-p-Fairness/datasets/`. The folder is gitignored,
+so it will not arrive with the clone — a dataset whose CSV is missing shows up
+in the dropdown but fails to load its attributes.
+
+Install the UI dependencies:
 
 ```bash
 npm install
 ```
 
-### Running the development server
+## Running
+
+**1. Kafka** — from the `Streaming-p-Fairness` directory:
+
+```bash
+docker compose -f zk-single-kafka-single.yml up -d
+```
+
+**2. Backend** — from the `Streaming-p-Fairness` root, not from `api/`:
+
+```bash
+uvicorn api.main:app --reload --port 8000
+```
+
+**3. UI** — from this directory:
 
 ```bash
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173` by default.
+Open `http://localhost:5173`. The sidebar shows "Connected" once it reaches the
+backend.
 
-### Other commands
+## Using it
+
+1. Pick a **Topic of Exploration** (dataset) and a **Protected Attribute**.
+2. Set the **Constraints** — the target share for each attribute value. They are
+   scaled to sum to 1, so `20/20/20/20/20` and `1/1/1/1/1` mean the same thing.
+3. Set **Window Size**, **Block Size** (must divide the window), and
+   **Landmark Size**.
+4. Click **Produce data to Kafka**, wait for it to finish, then **Monitor**.
+5. Step through windows. An unfair window offers **Reorder**; if reordering
+   within the window is not enough, it offers **Reorder with Landmark**, which
+   looks ahead at incoming records.
+
+### Choosing a landmark size
+
+Set this generously — a few hundred rather than single digits. The dataset CSVs
+are ordered, so any single window tends to hold only one or two attribute
+values, and a reorder confined to that window has nothing to work with. The
+look-ahead is what fixes it.
+
+Measured on Movies / Release Era, window 20, block 5, five eras at 20%: a
+landmark of 5 or 40 leaves 0 of 4 blocks fair. At 200, **Reorder with Landmark**
+reaches 4 of 4.
+
+If a reorder appears to do nothing, the landmark is almost always too small.
+
+### When constraints cannot be met
+
+The reorder returns the best arrangement possible for the records available, so
+if it still falls short the constraints are unreachable for that data — the UI
+says so rather than reporting success. Leftover records that cannot fit a fair
+block are grouped at the end of the window.
+
+## Other commands
 
 ```bash
-npm run build      # Build for production
-npm run preview    # Preview the production build locally
-npm run lint       # Run ESLint
+npm run build      # production build
+npm run preview    # preview the production build
+npm run lint       # ESLint
 ```
-
----
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
