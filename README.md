@@ -1,6 +1,6 @@
 # CoBLOC
 
-Continuous Block Level Fairness on Data Streams — a React + Vite UI for the
+Continuous Block Level Fairness on Data Streams. A React + Vite UI for the
 [Streaming-p-Fairness](https://github.com/Subhodeep01/Streaming-p-Fairness) engine.
 
 The UI streams records through Kafka, checks each sliding window for p-fairness,
@@ -9,7 +9,7 @@ and can reorder a window with `bfair` to make its blocks fair.
 ## What you need running
 
 Three things, in this order. The UI on its own will just sit at "Connecting to
-backend…" — it needs the other two.
+backend…". It needs the other two.
 
 | | what | where |
 |---|---|---|
@@ -40,7 +40,7 @@ pip install -r Streaming-p-Fairness/api/requirements.txt
 
 Download the datasets from [OSF](https://osf.io/q4fu2/overview?view_only=04e3328f2c514ee3b8f4a4822f1c9a23)
 and put the CSVs in `Streaming-p-Fairness/datasets/`. The folder is gitignored,
-so it will not arrive with the clone — a dataset whose CSV is missing shows up
+so it will not arrive with the clone. A dataset whose CSV is missing shows up
 in the dropdown but fails to load its attributes.
 
 Install the UI dependencies:
@@ -51,19 +51,19 @@ npm install
 
 ## Running
 
-**1. Kafka** — from the `Streaming-p-Fairness` directory:
+**1. Kafka**, from the `Streaming-p-Fairness` directory:
 
 ```bash
 docker compose -f zk-single-kafka-single.yml up -d
 ```
 
-**2. Backend** — from the `Streaming-p-Fairness` root, not from `api/`:
+**2. Backend**, from the `Streaming-p-Fairness` root, not from `api/`:
 
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-**3. UI** — from this directory:
+**3. UI**, from this directory:
 
 ```bash
 npm run dev
@@ -75,7 +75,7 @@ backend.
 ## Using it
 
 1. Pick a **Topic of Exploration** (dataset) and a **Protected Attribute**.
-2. Set the **Constraints** — the target share for each attribute value. They are
+2. Set the **Constraints**, the target share for each attribute value. They are
    scaled to sum to 1, so `20/20/20/20/20` and `1/1/1/1/1` mean the same thing.
 3. Set **Window Size**, **Block Size** (must divide the window), and
    **Landmark Size**.
@@ -86,7 +86,7 @@ backend.
 
 ### Choosing a landmark size
 
-Set this generously — a few hundred rather than single digits. The dataset CSVs
+Set this generously, a few hundred rather than single digits. The dataset CSVs
 are ordered, so any single window tends to hold only one or two attribute
 values, and a reorder confined to that window has nothing to work with. The
 look-ahead is what fixes it.
@@ -100,7 +100,7 @@ If a reorder appears to do nothing, the landmark is almost always too small.
 ### When constraints cannot be met
 
 The reorder returns the best arrangement possible for the records available, so
-if it still falls short the constraints are unreachable for that data — the UI
+if it still falls short the constraints are unreachable for that data. The UI
 says so rather than reporting success. Leftover records that cannot fit a fair
 block are grouped at the end of the window.
 
