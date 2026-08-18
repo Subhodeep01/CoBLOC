@@ -37,6 +37,9 @@ function buildWindow(msg) {
     attribute: msg.attribute || '',
     blockSize,
     isReordered: false,
+    fairBlocksBefore: msg.fair_blocks_before,
+    fairBlocksAfter: msg.fair_blocks_after,
+    blocksPerWindow: msg.blocks_per_window,
   };
 }
 
@@ -148,6 +151,16 @@ export function useLiveStream() {
     const reordBlocks = currentWindow.reorderedBlocks || currentWindow.blocks;
     const allFair = checkAllBlocksFair(reordBlocks, constraints, currentWindow.blockSize);
 
+    const { fairBlocksBefore: before, fairBlocksAfter: after } = currentWindow;
+    if (before != null && after != null && after <= before) {
+      setReorderStatus({
+        phase: 'needs_landmark',
+        message: 'Reordering within this window cannot improve fairness, so the original order was kept.'
+          + ' Enter a landmark size to try with look-ahead.',
+      });
+      return;
+    }
+
     setReordered(true);
     setWindowBuffer(prev => {
       const next = prev.map((w, i) => i === idx ? { ...w, isReordered: true } : w);
@@ -206,6 +219,18 @@ export function useLiveStream() {
 
       const data = await r.json();
       if (data.status === 'ok') {
+        const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
+
+        if (after <= before) {
+          setReorderStatus({
+            phase: 'infeasible',
+            message: `These constraints cannot be met by this data, so the original order was kept`
+              + (bpw ? ` (${before} of ${bpw} blocks fair).` : '.')
+              + ' Some attribute values may not appear often enough in this stretch of the stream.',
+          });
+          return;
+        }
+
         const allReordered = data.reordered_items;
         setWindowBuffer(prev => {
           const next = prev.map((w, i) => {
@@ -239,12 +264,11 @@ export function useLiveStream() {
           };
         }
         setReordered(true);
-        const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
-        const counts = bpw ? ` — ${before} → ${after} of ${bpw} blocks fair.` : '.';
+        const counts = bpw ? `, ${before} to ${after} of ${bpw} blocks fair.` : '.';
         if (data.reorder_feasible === false) {
           setReorderStatus({
             phase: 'infeasible',
-            message: `These constraints cannot be fully met by this data${counts}`
+            message: `Reordered as far as this data allows${counts}`
               + ' Items that cannot fit a fair block are grouped at the end of the window.',
           });
         } else {
