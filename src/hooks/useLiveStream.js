@@ -107,7 +107,8 @@ export function useLiveStream() {
             // Apply pending landmark reorder to this window if it falls in range
             const pl = pendingLandmarkRef.current;
             if (pl && newIdx > pl.baseIdx && newIdx <= pl.baseIdx + pl.totalWindows) {
-              const offset = (newIdx - pl.baseIdx) * pl.winSize;
+              // Overlapping windows: window baseIdx+k starts at offset k
+              const offset = newIdx - pl.baseIdx;
               const slice = pl.allReordered.slice(offset, offset + pl.winSize);
               if (slice.length > 0) {
                 const newItems = slice.map((v, i) => makeItem(v, i, win.windowNumber));
@@ -181,15 +182,20 @@ export function useLiveStream() {
       }
       setLandmarkLoadedIndices(prev => new Set([...prev, ...intendedIndices]));
 
-      // Gather items from buffered landmark windows
+      // The window slides one item at a time, so consecutive windows share
+      // winSize-1 items and window ni contributes exactly one new item: its
+      // last. Concatenating every item of each window instead would hand bfair
+      // the same records many times over (6 windows of 20 carry only 25
+      // distinct items), and the reordered slices would then repeat some
+      // records and drop others. This mirrors the consumer, which polls one
+      // new message per landmark step.
       const landmarkItems = [];
       const bufferedLandmarkIndices = [];
       for (const ni of intendedIndices) {
         if (ni < buf.length) {
           bufferedLandmarkIndices.push(ni);
-          for (const item of buf[ni].items) {
-            landmarkItems.push(item.raw);
-          }
+          const items = buf[ni].items;
+          if (items.length > 0) landmarkItems.push(items[items.length - 1].raw);
         }
       }
 
@@ -219,7 +225,8 @@ export function useLiveStream() {
             }
             const lPos = bufferedLandmarkIndices.indexOf(i);
             if (lPos !== -1) {
-              const start = (lPos + 1) * winSize;
+              // Windows overlap by one item, so window idx+k starts at offset k
+              const start = lPos + 1;
               const slice = allReordered.slice(start, start + winSize).map((v, j) => makeItem(v, j, w.windowNumber));
               if (slice.length > 0) {
                 return { ...w, reorderedBlocks: chunkIntoBlocks(slice, w.blockSize), isReordered: true };
