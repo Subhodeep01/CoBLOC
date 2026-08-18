@@ -14,7 +14,7 @@ export default function ItemDetailModal({ movie, onClose }) {
       <div className="fixed inset-0 z-40" onClick={onClose} />
 
       {/* popover anchored below the tile */}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="h-1.5 w-full" style={{ backgroundColor: color.bg }} />
         <div className="p-3">
           <div className="flex items-start justify-between mb-2">
@@ -35,11 +35,11 @@ export default function ItemDetailModal({ movie, onClose }) {
             </button>
           </div>
 
-          <div className="space-y-1.5 max-h-56 overflow-y-auto">
+          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-2">
             {entries.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-2 text-xs border-b border-slate-100 pb-1">
                 <span className="text-slate-400 shrink-0 capitalize">{k.replace(/_/g, ' ')}</span>
-                <span className="text-slate-800 text-right font-medium break-words max-w-36">{v}</span>
+                <span className="text-slate-800 text-right font-medium break-words max-w-48">{v}</span>
               </div>
             ))}
           </div>

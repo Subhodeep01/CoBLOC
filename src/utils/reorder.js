@@ -1,4 +1,33 @@
 /**
+ * Check if a single block satisfies floor/ceiling fairness.
+ */
+export function isBlockFair(block, constraints, blockSize) {
+  const counts = {};
+  for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
+  // Scale against the total the user actually entered, not 100. The backend
+  // normalises the same constraints before deriving its bounds, so dividing by
+  // a hardcoded 100 makes these badges disagree with the fair-block counts
+  // whenever the inputs do not happen to add up to 100.
+  const total = Object.values(constraints).reduce((s, v) => s + (parseInt(v) || 0), 0);
+  if (!total) return true;
+  return Object.entries(constraints).every(([g, pct]) => {
+    if (!pct) return true;
+    const p = (parseInt(pct) || 0) / total;
+    const floor = Math.floor(p * blockSize);
+    const ceil = Math.ceil(p * blockSize);
+    const c = counts[g] || 0;
+    return c >= floor && c <= ceil;
+  });
+}
+
+/**
+ * Check if all blocks in a window are fair.
+ */
+export function isWindowFair(blocks, constraints, blockSize) {
+  return blocks.every(b => isBlockFair(b, constraints, blockSize));
+}
+
+/**
  * Reorder movies within each block to satisfy genre constraints.
  * @param {Array[]} blocks - Array of blocks, each block is an array of movies
  * @param {Object} constraints - { genre: percentage } e.g. { "light-hearted": 50, "dark-themed": 30, "neutral": 20 }

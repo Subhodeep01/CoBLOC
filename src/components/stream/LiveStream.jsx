@@ -2,20 +2,8 @@ import Block from './Block';
 import BlockNavigator from './BlockNavigator';
 import { genreDistribution } from '../../utils/metrics';
 import { getGenreColor, GENRE_LABELS } from '../../constants/genres';
+import { isBlockFair, isWindowFair as checkWindowFair } from '../../utils/reorder';
 import { useState, useEffect } from 'react';
-
-function isBlockFair(block, constraints, blockSize) {
-  const counts = {};
-  for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
-  return Object.entries(constraints).every(([g, pct]) => {
-    if (!pct) return true;
-    const p = (parseInt(pct) || 0) / 100;
-    const floor = Math.floor(p * blockSize);
-    const ceil = Math.ceil(p * blockSize);
-    const c = counts[g] || 0;
-    return c >= floor && c <= ceil;
-  });
-}
 
 export default function LiveStream({ liveStream, config, onEnd }) {
   const {
@@ -56,7 +44,10 @@ export default function LiveStream({ liveStream, config, onEnd }) {
 
   const dist = genreDistribution(activeBlock);
   const origDist = genreDistribution(origBlock);
+  const blockCounts = {};
+  for (const item of activeBlock) blockCounts[item.genre] = (blockCounts[item.genre] || 0) + 1;
   const blockFair = isBlockFair(activeBlock, constraints, currentWindow.blockSize);
+  const isWindowFair = checkWindowFair(activeBlocks, constraints, currentWindow.blockSize);
   const uniqueGenres = [...new Set(activeBlocks.flat().map(i => i.genre))].sort();
 
   return (
@@ -68,9 +59,9 @@ export default function LiveStream({ liveStream, config, onEnd }) {
             <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
               Window {windowNumber}
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                isFair ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
+                isWindowFair ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'
               }`}>
-                {isFair ? '✓ window fair' : '✗ window unfair'}
+                {isWindowFair ? '✓ window fair' : '✗ window unfair'}
               </span>
               {reordered && (
                 <span className="text-sm font-semibold text-violet-600 bg-violet-50 border border-violet-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
@@ -129,19 +120,25 @@ export default function LiveStream({ liveStream, config, onEnd }) {
             })}
           </div>
           <div className="flex flex-wrap gap-4">
-            {uniqueGenres.map(genre => {
-              const pct = dist[genre] || 0;
+            {(() => {
+              const totalPct = Object.values(constraints).reduce((s, v) => s + (parseInt(v) || 0), 0);
+              return uniqueGenres.map(genre => {
               const color = getGenreColor(genre);
-              const target = constraints[genre];
+              const count = blockCounts[genre] || 0;
+              const rawPct = parseInt(constraints[genre]) || 0;
+              const p = totalPct > 0 ? rawPct / totalPct : null;
+              const floorVal = p !== null ? Math.floor(p * currentWindow.blockSize) : null;
+              const ceilVal = p !== null ? Math.ceil(p * currentWindow.blockSize) : null;
               return (
                 <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
                   <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: color?.bg || '#94a3b8' }} />
                   {GENRE_LABELS[genre] ?? genre}:{' '}
-                  <span className="text-slate-900 font-semibold">{pct}%</span>
-                  {target ? <span className="text-slate-400">(target {target}%)</span> : null}
+                  <span className="text-slate-900 font-semibold">{count} item{count !== 1 ? 's' : ''}</span>
+                  {floorVal !== null ? <span className="text-slate-400">(target [{floorVal}, {ceilVal}])</span> : null}
                 </span>
               );
-            })}
+              });
+            })()}
           </div>
 
           {/* Before/after comparison when reordered */}

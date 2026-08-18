@@ -149,8 +149,9 @@ export function sessionReducer(state, action) {
             windowIndex: i,
             movies: w.items,
             blocks: w.blocks,
-            isReordered: false,
-            preReorderBlocks: null,
+            reorderedBlocks: w.reorderedBlocks || null,
+            isReordered: w.isReordered || false,
+            preReorderBlocks: w.isReordered ? w.blocks : null,
             reorderDelta: null,
             isLandmarkAffected: false,
           }))
