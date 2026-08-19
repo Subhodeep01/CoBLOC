@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { genreDistribution } from '../../utils/metrics';
 import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
@@ -70,6 +70,11 @@ function DistBar({ blocks, label }) {
 
 export default function HighlightedWindows({ windows, monitorOnly }) {
   const [activeIdx, setActiveIdx] = useState(0);
+  const activeDotRef = useRef(null);
+
+  useEffect(() => {
+    activeDotRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [activeIdx]);
 
   if (monitorOnly) {
     const serendipitous = computeSerendipitousBlock(windows);
@@ -125,12 +130,13 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
       <h3 className="text-2xl font-bold text-slate-900 mb-4">Reordered Windows — Before &amp; After</h3>
 
       {/* Dot navigator */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
         {reordered.map((w, i) => (
           <button
             key={w.originalIndex}
             onClick={() => setActiveIdx(i)}
-            className={`flex flex-col items-center gap-1 group`}
+            ref={i === safeIdx ? activeDotRef : null}
+            className={`flex flex-col items-center gap-1 group shrink-0`}
           >
             <span className={`w-8 h-8 rounded-full text-xs font-semibold flex items-center justify-center transition-colors ${
               i === safeIdx
