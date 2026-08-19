@@ -127,7 +127,7 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
 
   return (
     <div className="mt-6">
-      <h3 className="text-2xl font-bold text-slate-900 mb-4">Reordered Windows — Before &amp; After</h3>
+      <h3 className="text-2xl font-bold text-slate-900 mb-4">Reordered Windows: Before &amp; After</h3>
 
       {/* Dot navigator */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
