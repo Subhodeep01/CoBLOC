@@ -76,38 +76,39 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
     activeDotRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }, [activeIdx]);
 
-  if (monitorOnly) {
-    const serendipitous = computeSerendipitousBlock(windows);
-    if (!serendipitous) return null;
-    const { wi, bi, dist } = serendipitous;
-    return (
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">Serendipitous Moment</h3>
-        <p className="text-sm text-slate-400 mb-3">
-          The block with the most unique distribution compared to the rest of the session.
-        </p>
-        <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-amber-500 text-xl">✦</span>
-            <span className="text-slate-900 font-semibold text-lg">
-              Window {wi + 1}, Block {bi + 1}
+  const serendipitous = computeSerendipitousBlock(windows);
+
+  const serendipitousPanel = serendipitous && (
+    <div className="mt-6">
+      <h3 className="text-xl font-semibold text-slate-900 mb-2">Serendipitous Moment</h3>
+      <p className="text-sm text-slate-400 mb-3">
+        The block with the most unique distribution compared to the rest of the session.
+      </p>
+      <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-amber-500 text-xl">✦</span>
+          <span className="text-slate-900 font-semibold text-lg">
+            Window {serendipitous.wi + 1}, Block {serendipitous.bi + 1}
+          </span>
+          <span className="text-sm text-amber-600 ml-1">Most distinctive</span>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {Object.entries(serendipitous.dist).map(([genre, pct]) => (
+            <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
+              <span
+                className="inline-block w-3 h-3 rounded-sm"
+                style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+              />
+              {GENRE_LABELS[genre] ?? genre}: <span className="text-slate-900 font-semibold ml-0.5">{pct}%</span>
             </span>
-            <span className="text-sm text-amber-600 ml-1">Most distinctive</span>
-          </div>
-          <div className="flex flex-wrap gap-4">
-            {Object.entries(dist).map(([genre, pct]) => (
-              <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
-                <span
-                  className="inline-block w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
-                />
-                {GENRE_LABELS[genre] ?? genre}: <span className="text-slate-900 font-semibold ml-0.5">{pct}%</span>
-              </span>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
-    );
+    </div>
+  );
+
+  if (monitorOnly) {
+    return serendipitousPanel || null;
   }
 
   const reordered = windows
@@ -116,9 +117,12 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
 
   if (reordered.length === 0) {
     return (
-      <div className="mt-6 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <p className="text-base text-slate-400">No reorders were performed during this session.</p>
-      </div>
+      <>
+        {serendipitousPanel}
+        <div className="mt-6 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+          <p className="text-base text-slate-400">No reorders were performed during this session.</p>
+        </div>
+      </>
     );
   }
 
@@ -126,6 +130,8 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
   const active = reordered[safeIdx];
 
   return (
+    <>
+    {serendipitousPanel}
     <div className="mt-6">
       <h3 className="text-2xl font-bold text-slate-900 mb-4">Reordered Windows: Before &amp; After</h3>
 
@@ -181,5 +187,6 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
         </div>
       )}
     </div>
+    </>
   );
 }
