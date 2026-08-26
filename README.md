@@ -32,17 +32,10 @@ git clone https://github.com/Subhodeep01/Streaming-p-Fairness.git
 git clone https://github.com/Subhodeep01/CoBLOC.git
 ```
 
-The backend lives on the `ui-backend-integration` branch, not `main`, so check it
-out before going further or `api/main.py` will not be there:
-
-```bash
-cd Streaming-p-Fairness
-git checkout ui-backend-integration
-```
-
 Install the backend dependencies:
 
 ```bash
+cd Streaming-p-Fairness
 pip install -r api/requirements.txt
 ```
 
