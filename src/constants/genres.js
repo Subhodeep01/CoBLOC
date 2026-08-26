@@ -106,15 +106,25 @@ const _PALETTE = [
   '#dc2626','#7c3aed','#0284c7','#f43f5e','#d97706',
 ];
 
-function _hashColor(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
-  const bg = _PALETTE[Math.abs(h) % _PALETTE.length];
-  return { bg, gradient: '', text: '#fff', badge: `bg-[${bg}] text-white` };
+// Values not listed above (computed stock bins, tweet topics, census
+// occupations, columns from a user's own CSV) take the next palette colour the
+// first time they are seen. Hashing the string was giving two categories the
+// same colour; handing them out in order cannot collide until the palette runs
+// out, and stays stable for the rest of the session.
+const _assigned = new Map();
+
+function _autoColor(key) {
+  let c = _assigned.get(key);
+  if (!c) {
+    const bg = _PALETTE[_assigned.size % _PALETTE.length];
+    c = { bg, gradient: '', text: '#fff', badge: `bg-[${bg}] text-white` };
+    _assigned.set(key, c);
+  }
+  return c;
 }
 
 export function getGenreColor(key) {
-  return GENRE_COLORS[key] || _hashColor(String(key));
+  return GENRE_COLORS[key] || _autoColor(String(key));
 }
 
 export const GENRE_LABELS = {

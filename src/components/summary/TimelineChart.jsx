@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 import { genreDistribution } from '../../utils/metrics';
 
 const FAIRNESS_TOLERANCE = 10;
@@ -116,7 +116,7 @@ export default function TimelineChart({ windows, config }) {
               </span>
             </div>
             {Object.entries(preDist).map(([genre, pct]) => (
-              <p key={genre} className="text-sm" style={{ color: GENRE_COLORS[genre]?.bg || '#94a3b8' }}>
+              <p key={genre} className="text-sm" style={{ color: getGenreColor(genre).bg }}>
                 {GENRE_LABELS[genre] ?? genre}: {pct}%
               </p>
             ))}
@@ -177,7 +177,7 @@ export default function TimelineChart({ windows, config }) {
               dataKey={genre}
               name={GENRE_LABELS[genre] ?? genre}
               stackId="a"
-              fill={GENRE_COLORS[genre]?.bg || '#94a3b8'}
+              fill={getGenreColor(genre).bg}
               stroke={(entry) => (entry.isReordered && entry.reorderDelta >= highlightThreshold ? '#f59e0b' : 'none')}
               strokeWidth={(entry) => (entry.isReordered && entry.reorderDelta >= highlightThreshold ? 2 : 0)}
             />

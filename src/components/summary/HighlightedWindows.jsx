@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { genreDistribution } from '../../utils/metrics';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
 function computeSerendipitousBlock(windows) {
   const allBlocks = [];
@@ -37,7 +37,7 @@ function DistBar({ blocks, label }) {
       <div className="flex h-5 w-full rounded overflow-hidden border border-slate-200">
         {genres.map(g => {
           const pct = dist[g] || 0;
-          const color = GENRE_COLORS[g]?.bg || '#94a3b8';
+          const color = getGenreColor(g).bg;
           return (
             <div
               key={g}
@@ -55,7 +55,7 @@ function DistBar({ blocks, label }) {
       <div className="flex flex-wrap gap-3">
         {genres.map(g => {
           const pct = dist[g] || 0;
-          const color = GENRE_COLORS[g]?.bg || '#94a3b8';
+          const color = getGenreColor(g).bg;
           return (
             <span key={g} className="flex items-center gap-1.5 text-xs text-slate-600">
               <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: color }} />
@@ -97,7 +97,7 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
             <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
               <span
                 className="inline-block w-3 h-3 rounded-sm"
-                style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+                style={{ backgroundColor: getGenreColor(genre).bg }}
               />
               {GENRE_LABELS[genre] ?? genre}: <span className="text-slate-900 font-semibold ml-0.5">{pct}%</span>
             </span>

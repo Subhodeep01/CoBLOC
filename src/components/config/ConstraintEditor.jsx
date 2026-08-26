@@ -1,4 +1,4 @@
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
 export default function ConstraintEditor({ constraints, onChange, disabled }) {
   const entries = Object.entries(constraints);
@@ -19,7 +19,7 @@ export default function ConstraintEditor({ constraints, onChange, disabled }) {
 
       <div className="space-y-2.5">
         {entries.map(([key, val]) => {
-          const color = GENRE_COLORS[key];
+          const color = getGenreColor(key);
           return (
             <div key={key} className="flex items-center gap-3">
               <span

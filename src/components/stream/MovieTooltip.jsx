@@ -1,11 +1,11 @@
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
 function isPatient(item) {
   return 'mrdNo' in item;
 }
 
 function PatientTooltip({ patient }) {
-  const color = GENRE_COLORS[patient.genre] || { bg: '#94a3b8' };
+  const color = getGenreColor(patient.genre);
 
   return (
     <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none">
@@ -72,7 +72,7 @@ function PatientTooltip({ patient }) {
 }
 
 function LiveItemTooltip({ movie }) {
-  const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8' };
+  const color = getGenreColor(movie.genre);
   const raw = movie.raw || {};
   const skip = new Set(['value']);
   const entries = Object.entries(raw).filter(([k]) => !skip.has(k) && raw[k] !== '');
@@ -106,7 +106,7 @@ export default function MovieTooltip({ movie }) {
     return <LiveItemTooltip movie={movie} />;
   }
 
-  const color = GENRE_COLORS[movie.genre] || { bg: '#94a3b8' };
+  const color = getGenreColor(movie.genre);
 
   return (
     <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-white border border-slate-200 rounded-lg shadow-xl p-3 pointer-events-none">

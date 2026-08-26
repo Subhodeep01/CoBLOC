@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
 export default function ConstraintsRecommendation({ topic }) {
   const sessions = useMemo(() => {
@@ -66,7 +66,7 @@ export default function ConstraintsRecommendation({ topic }) {
             <span key={genre} className="flex items-center gap-2 text-base text-slate-700">
               <span
                 className="inline-block w-3.5 h-3.5 rounded-sm shrink-0"
-                style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+                style={{ backgroundColor: getGenreColor(genre).bg }}
               />
               <span>{GENRE_LABELS[genre] ?? genre}:</span>
               <span className="font-bold text-slate-900">{pct}%</span>
@@ -94,7 +94,7 @@ export default function ConstraintsRecommendation({ topic }) {
                       <span key={genre} className="flex items-center gap-1.5 text-slate-600">
                         <span
                           className="inline-block w-2.5 h-2.5 rounded-sm"
-                          style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+                          style={{ backgroundColor: getGenreColor(genre).bg }}
                         />
                         {GENRE_LABELS[genre] ?? genre} {pct}%
                       </span>

@@ -2,7 +2,7 @@ import Block from './Block';
 import BlockNavigator from './BlockNavigator';
 import WindowControls from './WindowControls';
 import { genreDistribution } from '../../utils/metrics';
-import { GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 
 const FAIRNESS_TOLERANCE = 10;
 
@@ -58,7 +58,7 @@ export default function RecommendationStream({ session }) {
             {Object.entries(dist).map(([genre, pct]) => (
               <div
                 key={genre}
-                style={{ width: `${pct}%`, backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+                style={{ width: `${pct}%`, backgroundColor: getGenreColor(genre).bg }}
                 title={`${GENRE_LABELS[genre] ?? genre}: ${pct}% (target: ${constraints[genre] ?? '?'}%)`}
                 className="relative flex items-center justify-center"
               >
@@ -73,7 +73,7 @@ export default function RecommendationStream({ session }) {
               <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
                 <span
                   className="inline-block w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: GENRE_COLORS[genre]?.bg || '#94a3b8' }}
+                  style={{ backgroundColor: getGenreColor(genre).bg }}
                 />
                 {GENRE_LABELS[genre] ?? genre}: <span className="text-slate-900 font-semibold">{pct}%</span>
                 <span className="text-slate-400">(target {constraints[genre] ?? '?'}%)</span>
