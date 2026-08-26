@@ -182,6 +182,12 @@ export function useLiveStream() {
     if (!currentWindow || !landmarkSize) return;
     setReorderStatus({ phase: 'loading', message: 'Reordering with landmark… Please wait.' });
 
+    // The reorder returns almost instantly, which reads as though nothing
+    // happened. Hold the spinner long enough to see, scaled by how much work
+    // was asked for, and capped so it never feels sluggish.
+    const startedAt = Date.now();
+    const minSpinMs = Math.min(2500, 400 + landmarkSize * 12);
+
     try {
       const windowItems = currentWindow.items.map(i => i.raw);
       const winSize = windowItems.length;
@@ -218,6 +224,12 @@ export function useLiveStream() {
       });
 
       const data = await r.json();
+
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minSpinMs) {
+        await new Promise(res => setTimeout(res, minSpinMs - elapsed));
+      }
+
       if (data.status === 'ok') {
         const { fair_blocks_before: before, fair_blocks_after: after, blocks_per_window: bpw } = data;
 
@@ -382,6 +394,12 @@ export function useLiveStream() {
   const canNext = currentIdx >= 0 && currentIdx < windowBuffer.length - 1;
   const canPrev = currentIdx > 0;
 
+  // Windows the user actually reached. The buffer keeps every window the
+  // stream delivered, so summarising all of it reports windows that were
+  // never opened.
+  const lastVisited = Math.max(maxReachedIdx, ...landmarkLoadedIndices, -1);
+  const visitedWindows = windowBuffer.slice(0, lastVisited + 1);
+
   return {
     connected,
     running,
@@ -392,6 +410,7 @@ export function useLiveStream() {
     currentIdx,
     maxReachedIdx,
     landmarkLoadedIndices,
+    visitedWindows,
     canNext,
     canPrev,
     latestMetrics,

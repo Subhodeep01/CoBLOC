@@ -11,7 +11,7 @@ const REORDER_TOPICS = Object.entries(TOPICS)
   .filter(([, v]) => !v.monitorOnly)
   .map(([k]) => k);
 
-export default function LeftPanel({ session }) {
+export default function LeftPanel({ session, width }) {
   const { state, liveStream, setConfig, startMonitor, endSession } = session;
   const { config, phase } = state;
 
@@ -22,6 +22,7 @@ export default function LeftPanel({ session }) {
   const apiDataset = liveStream.apiDatasets.find(d => d.name === config.topic);
   const apiAttr = apiDataset?.attributes.find(a => a.column === config.protectedAttributeColumn);
   const uniqueValues = apiAttr?.unique_values ?? [];
+  const suggested = apiAttr?.suggested_constraints ?? {};
 
 
   // Compute proportions from constraints for landmark reorder
@@ -35,18 +36,34 @@ export default function LeftPanel({ session }) {
     return p;
   })();
 
-  // Auto-populate constraints from backend unique values when attribute changes
+  // Prefill with each value's real share of the dataset, falling back to an
+  // equal split if the backend did not report shares. Rounding leftovers go
+  // to the largest value so the boxes still add up to 100.
+  const defaultConstraints = () => {
+    const n = uniqueValues.length;
+    const out = {};
+    if (n > 0 && Object.keys(suggested).length === n) {
+      let total = 0;
+      uniqueValues.forEach(v => {
+        out[v] = Math.max(1, Math.round(suggested[v]));
+        total += out[v];
+      });
+      const biggest = uniqueValues.reduce((a, b) => (out[a] >= out[b] ? a : b));
+      out[biggest] += 100 - total;
+      return out;
+    }
+    const equal = Math.floor(100 / n);
+    uniqueValues.forEach((v, i) => {
+      out[v] = i === 0 ? 100 - equal * (n - 1) : equal;
+    });
+    return out;
+  };
+
   useEffect(() => {
     if (phase !== 'config') return;
     if (uniqueValues.length === 0) return;
     if (Object.keys(config.constraints).length > 0) return;
-    const n = uniqueValues.length;
-    const equal = Math.floor(100 / n);
-    const newConstraints = {};
-    uniqueValues.forEach((v, i) => {
-      newConstraints[v] = i === 0 ? 100 - equal * (n - 1) : equal;
-    });
-    setConfig({ constraints: newConstraints });
+    setConfig({ constraints: defaultConstraints() });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueValues.join(','), config.topic, config.protectedAttributeColumn, phase]);
 
@@ -77,14 +94,8 @@ export default function LeftPanel({ session }) {
   const handleMonitor = () => {
     let constraintsToUse = config.constraints;
     if (uniqueValues.length > 0 && Object.keys(constraintsToUse).length === 0) {
-      const n = uniqueValues.length;
-      const equal = Math.floor(100 / n);
-      const newConstraints = {};
-      uniqueValues.forEach((v, i) => {
-        newConstraints[v] = i === 0 ? 100 - equal * (n - 1) : equal;
-      });
-      setConfig({ constraints: newConstraints });
-      constraintsToUse = newConstraints;
+      constraintsToUse = defaultConstraints();
+      setConfig({ constraints: constraintsToUse });
     }
     startMonitor();
     liveStream.startStream({
@@ -120,7 +131,10 @@ export default function LeftPanel({ session }) {
   const landmarkEnabled = needsLandmark;
 
   return (
-    <aside className="w-96 min-w-96 bg-white border-r border-slate-200 flex flex-col h-screen overflow-y-auto">
+    <aside
+      style={width ? { width, minWidth: width } : undefined}
+      className="w-96 min-w-96 shrink-0 bg-white border-r border-slate-200 flex flex-col h-screen overflow-y-auto"
+    >
       {/* Header */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
@@ -193,10 +207,13 @@ export default function LeftPanel({ session }) {
           </div>
         </div>
 
-        {/* Attribute values info */}
+        {/* Suggested constraints — each value's actual share of the dataset */}
         {uniqueValues.length > 0 && (
           <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600 border border-slate-200">
-            <span className="font-medium">Values:</span> {uniqueValues.join(', ')}
+            <span className="font-medium">Suggested constraints:</span>{' '}
+            {uniqueValues
+              .map(v => (suggested[v] != null ? `${v} (${suggested[v]}%)` : v))
+              .join(', ')}
           </div>
         )}
 
@@ -251,7 +268,7 @@ export default function LeftPanel({ session }) {
       <div className="p-6 border-t border-slate-200 space-y-3">
         {phase === 'streaming' && liveStream.running && (
           <button
-            onClick={() => { liveStream.stopStream(); endSession(liveStream.windowBuffer); }}
+            onClick={() => { liveStream.stopStream(); endSession(liveStream.visitedWindows); }}
             className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg text-base transition-colors"
           >
             Stop Stream

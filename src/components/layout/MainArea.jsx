@@ -22,7 +22,7 @@ export default function MainArea({ session }) {
         <LiveStream
           liveStream={liveStream}
           config={state.config}
-          onEnd={() => endSession(liveStream.windowBuffer)}
+          onEnd={() => endSession(liveStream.visitedWindows)}
         />
       )}
 
