@@ -126,9 +126,15 @@ export default function TimelineChart({ windows, config }) {
     );
   };
 
-  const showLabels = data.length <= 40;
-  const bottomMargin = showLabels ? 60 : 20;
-  const xAxisHeight = showLabels ? 80 : 24;
+  // Give every block a fixed slot so bars stay readable, show roughly 20 at a
+  // time and scroll for the rest. Squeezing 100 blocks into one screen width
+  // made them unreadable.
+  const VISIBLE_BLOCKS = 20;
+  const BAR_SLOT = 48;
+  const chartWidth = Math.max(data.length, 1) * BAR_SLOT;
+  const showLabels = true;
+  const bottomMargin = 60;
+  const xAxisHeight = 80;
 
   return (
     <div>
@@ -150,8 +156,10 @@ export default function TimelineChart({ windows, config }) {
         </div>
       </div>
 
+      <div className="overflow-x-auto pb-2" style={{ maxWidth: `${VISIBLE_BLOCKS * BAR_SLOT}px` }}>
+      <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
       <ResponsiveContainer width="100%" height={420}>
-        <BarChart data={data} margin={{ top: 10, right: 20, bottom: bottomMargin, left: 0 }} barCategoryGap={data.length > 80 ? '5%' : '30%'}>
+        <BarChart data={data} margin={{ top: 10, right: 20, bottom: bottomMargin, left: 0 }} barCategoryGap="25%">
           <XAxis
             dataKey="name"
             tick={(props) => <CustomXAxisTick {...props} data={data} showLabel={showLabels} />}
@@ -176,6 +184,13 @@ export default function TimelineChart({ windows, config }) {
           ))}
         </BarChart>
       </ResponsiveContainer>
+      </div>
+      </div>
+      {data.length > VISIBLE_BLOCKS && (
+        <p className="text-sm text-slate-400 mt-1">
+          Showing {VISIBLE_BLOCKS} of {data.length} blocks, scroll sideways for the rest.
+        </p>
+      )}
     </div>
   );
 }
