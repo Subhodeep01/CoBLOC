@@ -112,6 +112,27 @@ if it still falls short the constraints are unreachable for that data. The UI
 says so rather than reporting success. Leftover records that cannot fit a fair
 block are grouped at the end of the window.
 
+## Installing the backend as a package
+
+Instead of running from a checkout, the backend can be installed and run from
+anywhere:
+
+```bash
+pip install .
+cobloc --datasets /path/to/your/csvs
+```
+
+That gives you a `cobloc` command with `--port`, `--host`, `--datasets` and
+`--broker`. The same settings can come from `COBLOC_DATASETS` and
+`COBLOC_BROKER` environment variables. You still need Kafka running.
+
+## Using your own datasets
+
+Drop any CSV into the datasets folder and it appears in the dropdown next to
+the five bundled ones. Columns with between 2 and 20 distinct values are
+offered as protected attributes, and each value's share of the file becomes its
+suggested constraint. Nothing else is required: no config entry, no code.
+
 ## Other commands
 
 ```bash
