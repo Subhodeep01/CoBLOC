@@ -1,15 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 import { genreDistribution } from '../../utils/metrics';
+import { isBlockFair } from '../../utils/reorder';
 
-const FAIRNESS_TOLERANCE = 10;
-
-function isBlockFair(dist, constraints) {
-  for (const [genre, target] of Object.entries(constraints)) {
-    if (Math.abs((dist[genre] || 0) - target) > FAIRNESS_TOLERANCE) return false;
-  }
-  return true;
-}
+// Fairness here used to be "within 10 percentage points of the target", which
+// disagreed with the floor/ceiling rule the live view and the backend both
+// apply, so the same block could be fair on one screen and unfair on another.
 
 function CustomXAxisTick({ x, y, payload, data, showLabel }) {
   const entry = data.find(d => d.name === payload.value);
@@ -43,7 +39,11 @@ export default function TimelineChart({ windows, config }) {
 
   const data = [];
   windows.forEach((win, wi) => {
-    win.blocks.forEach((block, bi) => {
+    // Show what the window ended up as. Reading win.blocks here meant a
+    // reordered window was charted from its pre-reorder contents, so the bars
+    // and the fair/unfair marks never moved.
+    const shownBlocks = (win.isReordered && win.reorderedBlocks) ? win.reorderedBlocks : win.blocks;
+    shownBlocks.forEach((block, bi) => {
       const dist = genreDistribution(block);
       const entry = {
         name: `W${wi + 1}-B${bi + 1}`,
@@ -52,7 +52,7 @@ export default function TimelineChart({ windows, config }) {
         isReordered: win.isReordered,
         reorderDelta: win.reorderDelta,
         preReorderBlocks: win.preReorderBlocks,
-        isFair: isBlockFair(dist, constraints),
+        isFair: isBlockFair(block, constraints, block.length),
       };
       for (const g of Object.keys(constraints)) {
         entry[g] = dist[g] || 0;
@@ -83,7 +83,7 @@ export default function TimelineChart({ windows, config }) {
       const preBlock = win.preReorderBlocks[entry.blockIndex];
       if (preBlock) {
         preDist = genreDistribution(preBlock);
-        preFair = isBlockFair(preDist, constraints);
+        preFair = isBlockFair(preBlock, constraints, preBlock.length);
       }
     }
 
