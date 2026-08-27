@@ -7,28 +7,38 @@ import { isBlockFair } from '../../utils/reorder';
 // disagreed with the floor/ceiling rule the live view and the backend both
 // apply, so the same block could be fair on one screen and unfair on another.
 
+// Two marks per block: what it was before the reorder and what it is after.
+// Listing both distributions in the tooltip put far too many numbers on
+// screen, and the two can be compared at a glance this way instead.
 function CustomXAxisTick({ x, y, payload, data, showLabel }) {
   const entry = data.find(d => d.name === payload.value);
   const fair = entry?.isFair;
+  const wasFair = entry?.wasFair;
+  const twin = entry?.isReordered && wasFair != null;
+  const dot = (cx, ok, key) => (
+    <g key={key}>
+      <circle cx={cx} cy={6} r={showLabel ? 7 : 4} fill={ok ? '#10b981' : '#ef4444'} opacity={0.9} />
+      {showLabel && (
+        <text x={cx} y={6} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="white" fontWeight="bold">
+          {ok ? '✓' : '✗'}
+        </text>
+      )}
+    </g>
+  );
   return (
     <g transform={`translate(${x},${y})`}>
-      <circle cx={0} cy={6} r={showLabel ? 7 : 4} fill={fair ? '#10b981' : '#ef4444'} opacity={0.9} />
+      {twin ? [dot(-9, wasFair, 'before'), dot(9, fair, 'after')] : dot(0, fair, 'only')}
       {showLabel && (
-        <>
-          <text x={0} y={6} textAnchor="middle" dominantBaseline="central" fontSize={9} fill="white" fontWeight="bold">
-            {fair ? '✓' : '✗'}
-          </text>
-          <text
-            x={0} y={20} dy={4}
-            textAnchor="end"
-            transform="rotate(-45, 0, 24)"
-            fill="#334155"
-            fontSize={13}
-            fontWeight="600"
-          >
-            {payload.value}
-          </text>
-        </>
+        <text
+          x={0} y={20} dy={4}
+          textAnchor="end"
+          transform="rotate(-45, 0, 24)"
+          fill="#334155"
+          fontSize={13}
+          fontWeight="600"
+        >
+          {payload.value}
+        </text>
       )}
     </g>
   );
@@ -45,6 +55,7 @@ export default function TimelineChart({ windows, config }) {
     const shownBlocks = (win.isReordered && win.reorderedBlocks) ? win.reorderedBlocks : win.blocks;
     shownBlocks.forEach((block, bi) => {
       const dist = genreDistribution(block);
+      const preBlock = win.isReordered ? win.preReorderBlocks?.[bi] : null;
       const entry = {
         name: `W${wi + 1}-B${bi + 1}`,
         windowIndex: wi,
@@ -53,6 +64,7 @@ export default function TimelineChart({ windows, config }) {
         reorderDelta: win.reorderDelta,
         preReorderBlocks: win.preReorderBlocks,
         isFair: isBlockFair(block, constraints, block.length),
+        wasFair: preBlock ? isBlockFair(preBlock, constraints, preBlock.length) : null,
       };
       for (const g of Object.keys(constraints)) {
         entry[g] = dist[g] || 0;
@@ -109,17 +121,13 @@ export default function TimelineChart({ windows, config }) {
         {preDist && (
           <>
             <div className="border-t border-slate-200 my-2" />
-            <div className="flex items-center gap-2 mb-1">
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Before reorder</p>
-              <span className={`text-xs font-semibold px-1 py-0.5 rounded ${preFair ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-                {preFair ? '✓ Fair' : '✗ Unfair'}
+            <p className="text-xs text-slate-500">
+              Before reorder this block was{' '}
+              <span className={preFair ? 'text-emerald-600 font-semibold' : 'text-red-600 font-semibold'}>
+                {preFair ? 'fair' : 'unfair'}
               </span>
-            </div>
-            {Object.entries(preDist).map(([genre, pct]) => (
-              <p key={genre} className="text-sm" style={{ color: getGenreColor(genre).bg }}>
-                {GENRE_LABELS[genre] ?? genre}: {pct}%
-              </p>
-            ))}
+              . The left mark on the axis is before, the right one is after.
+            </p>
           </>
         )}
       </div>

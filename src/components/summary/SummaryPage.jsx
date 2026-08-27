@@ -3,28 +3,27 @@ import HighlightedWindows from './HighlightedWindows';
 import LandmarkRecommendation from './LandmarkRecommendation';
 import ConstraintsRecommendation from './ConstraintsRecommendation';
 import { TOPICS } from '../../constants/topics';
+import { isBlockFair } from '../../utils/reorder';
+
+// The blocks a window ended up with: its reordered contents if it was
+// reordered, otherwise the originals. Counting w.blocks meant the headline
+// fairness figure ignored every reorder.
+function shownBlocks(w) {
+  return (w.isReordered && w.reorderedBlocks) ? w.reorderedBlocks : w.blocks;
+}
 
 function countFairBlocks(windows, constraints) {
-  return windows.flatMap(w => w.blocks).filter(block => {
-    const blockSize = block.length || 1;
-    const counts = {};
-    for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
-    return Object.entries(constraints).every(([g, pct]) => {
-      if (!pct) return true;
-      const p = (parseInt(pct) || 0) / 100;
-      const floor = Math.floor(p * blockSize);
-      const ceil = Math.ceil(p * blockSize);
-      const c = counts[g] || 0;
-      return c >= floor && c <= ceil;
-    });
-  }).length;
+  return windows
+    .flatMap(shownBlocks)
+    .filter(block => isBlockFair(block, constraints, block.length || 1))
+    .length;
 }
 
 export default function SummaryPage({ session }) {
   const { state, restart } = session;
   const monitorOnly = TOPICS[state.config.topic]?.monitorOnly ?? false;
   const fairBlocks = countFairBlocks(state.windows, state.config.constraints);
-  const totalBlocks = state.windows.flatMap(w => w.blocks).length;
+  const totalBlocks = state.windows.flatMap(shownBlocks).length;
   const fairPct = totalBlocks > 0 ? Math.round(fairBlocks / totalBlocks * 100) : 0;
 
   const landmarkReorderedWindows = state.windows.filter(
