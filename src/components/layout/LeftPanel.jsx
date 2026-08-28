@@ -67,6 +67,40 @@ export default function LeftPanel({ session, width }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueValues.join(','), config.topic, config.protectedAttributeColumn, phase]);
 
+  const constraintTotal = uniqueValues.reduce(
+    (s, v) => s + (parseInt(config.constraints[v]) || 0), 0
+  );
+  const constraintsOk = uniqueValues.length === 0 || constraintTotal === 100;
+
+  // Spread the shortfall or excess evenly across the values until they total
+  // exactly 100. Values are never driven below zero, so an excess that one
+  // value cannot absorb rolls onto the others rather than going negative.
+  const autoFixConstraints = () => {
+    const n = uniqueValues.length;
+    if (!n) return config.constraints;
+    const out = {};
+    uniqueValues.forEach(v => { out[v] = Math.max(0, parseInt(config.constraints[v]) || 0); });
+    const sum = () => uniqueValues.reduce((s, v) => s + out[v], 0);
+
+    for (let guard = 0; guard < 200 && sum() !== 100; guard++) {
+      let diff = 100 - sum();
+      // when trimming, only values with room left can give any back
+      const active = uniqueValues.filter(v => diff > 0 || out[v] > 0);
+      if (!active.length) break;
+      const step = Math.trunc(diff / active.length);
+      if (step) {
+        active.forEach(v => { out[v] = Math.max(0, out[v] + step); });
+      } else {
+        for (const v of active) {
+          if (diff === 0) break;
+          const next = out[v] + (diff > 0 ? 1 : -1);
+          if (next >= 0) { out[v] = next; diff += diff > 0 ? -1 : 1; }
+        }
+      }
+    }
+    return out;
+  };
+
 
   const handleTopicChange = (topic) => {
     const preset = TOPICS[topic];
@@ -240,6 +274,30 @@ export default function LeftPanel({ session, width }) {
                 </div>
               ))}
             </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className={`text-sm font-medium ${constraintsOk ? 'text-emerald-600' : 'text-amber-600'}`}>
+                Total: {constraintTotal}%
+              </span>
+              {!constraintsOk && phase === 'config' && (
+                <button
+                  onClick={() => setConfig({ constraints: autoFixConstraints() })}
+                  className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white transition-colors"
+                >
+                  Auto-fix
+                </button>
+              )}
+            </div>
+
+            {!constraintsOk && (
+              <p className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Constraints must add up to 100%. They currently total {constraintTotal}%
+                {constraintTotal < 100
+                  ? `, ${100 - constraintTotal}% short.`
+                  : `, ${constraintTotal - 100}% over.`}
+                {' '}Auto-fix spreads the difference evenly.
+              </p>
+            )}
           </div>
         )}
 
@@ -278,7 +336,8 @@ export default function LeftPanel({ session, width }) {
         {!(phase === 'streaming' && liveStream.running) && (
           <button
             onClick={handleMonitor}
-            disabled={phase === 'streaming' || !liveStream.producedTopic || liveStream.producedDataset !== config.topic}
+            disabled={phase === 'streaming' || !liveStream.producedTopic || liveStream.producedDataset !== config.topic || !constraintsOk}
+            title={!constraintsOk ? `Constraints total ${constraintTotal}%, they must add up to 100%` : undefined}
             className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold rounded-lg text-base transition-colors"
           >
             Monitor
