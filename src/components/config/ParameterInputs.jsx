@@ -99,6 +99,9 @@ export default function ParameterInputs({ config, onChange, disabled, monitorOnl
             placeholder="Enter a number"
             className="w-full bg-slate-100 border border-slate-300 rounded-lg px-4 py-2.5 text-base text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:text-slate-400"
           />
+          <p className={`mt-1 text-xs ${landmarkEnabled ? 'text-slate-400' : 'text-slate-300'}`}>
+            Maximum {MAX_LANDMARK}.
+          </p>
         </div>
       )}
     </div>
