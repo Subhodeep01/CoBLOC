@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-const API = 'http://localhost:8000';
+const API = 'http://127.0.0.1:8000';
 
 export default function LandmarkRecommendation({ session }) {
   const { state } = session;
@@ -23,7 +23,15 @@ export default function LandmarkRecommendation({ session }) {
     // The sweep runs on the stream as it arrived, before any reorder, so the
     // recommendation reflects the raw data rather than a stream the user has
     // already improved.
-    const stream = state.windows.flatMap(w => (w.movies || []).map(m => m.raw).filter(Boolean));
+    // Windows overlap by all but one item, so concatenating them would send
+    // the same rows hundreds of times. The stream is the first window plus the
+    // one new item each later window brought in.
+    const stream = [];
+    state.windows.forEach((w, i) => {
+      const items = (w.movies || []).map(m => m.raw).filter(Boolean);
+      if (i === 0) stream.push(...items);
+      else if (items.length) stream.push(items[items.length - 1]);
+    });
     const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
     const proportions = {};
     for (const [k, pct] of Object.entries(config.constraints || {})) {

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { chunkIntoBlocks } from '../utils/windowOps';
 
-const API = 'http://localhost:8000';
-const WS_URL = 'ws://localhost:8000/ws/metrics';
+const API = 'http://127.0.0.1:8000';
+const WS_URL = 'ws://127.0.0.1:8000/ws/metrics';
 
 function makeItem(item, index, windowNumber) {
   const value = typeof item === 'object' ? item.value : item;
