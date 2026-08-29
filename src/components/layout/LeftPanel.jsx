@@ -11,6 +11,22 @@ const REORDER_TOPICS = Object.entries(TOPICS)
   .filter(([, v]) => !v.monitorOnly)
   .map(([k]) => k);
 
+// Stream until the user stops rather than cutting off at a fixed count.
+const MAX_WINDOWS = 100000;
+
+const round1 = n => Math.round(n * 10) / 10;
+
+// Constraints are percentages, not counts, so decimals are legitimate. Strip
+// anything that is not a digit or a single dot, which also blocks the minus
+// sign that was letting negative shares through, and cap at 100.
+function sanitizeConstraint(raw) {
+  let s = String(raw).replace(/[^\d.]/g, '');
+  const dot = s.indexOf('.');
+  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+  if (s === '' || s === '.') return s;
+  return parseFloat(s) > 100 ? '100' : s;
+}
+
 export default function LeftPanel({ session, width }) {
   const { state, liveStream, setConfig, startMonitor, endSession } = session;
   const { config, phase } = state;
@@ -27,11 +43,11 @@ export default function LeftPanel({ session, width }) {
 
   // Compute proportions from constraints for landmark reorder
   const proportions = (() => {
-    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseInt(v) || 0), 0);
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
     if (!totalPct) return {};
     const p = {};
     for (const [k, pct] of Object.entries(config.constraints || {})) {
-      p[k] = (parseInt(pct) || 0) / totalPct;
+      p[k] = (parseFloat(pct) || 0) / totalPct;
     }
     return p;
   })();
@@ -43,13 +59,14 @@ export default function LeftPanel({ session, width }) {
     const n = uniqueValues.length;
     const out = {};
     if (n > 0 && Object.keys(suggested).length === n) {
+      // keep the reported share as-is; rounding 3.9 to 4 loses information
       let total = 0;
       uniqueValues.forEach(v => {
-        out[v] = Math.max(1, Math.round(suggested[v]));
+        out[v] = round1(Math.max(0, suggested[v]));
         total += out[v];
       });
       const biggest = uniqueValues.reduce((a, b) => (out[a] >= out[b] ? a : b));
-      out[biggest] += 100 - total;
+      out[biggest] = round1(out[biggest] + (100 - total));
       return out;
     }
     const equal = Math.floor(100 / n);
@@ -67,10 +84,10 @@ export default function LeftPanel({ session, width }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueValues.join(','), config.topic, config.protectedAttributeColumn, phase]);
 
-  const constraintTotal = uniqueValues.reduce(
-    (s, v) => s + (parseInt(config.constraints[v]) || 0), 0
+  const constraintTotal = round1(
+    uniqueValues.reduce((s, v) => s + (parseFloat(config.constraints[v]) || 0), 0)
   );
-  const constraintsOk = uniqueValues.length === 0 || constraintTotal === 100;
+  const constraintsOk = uniqueValues.length === 0 || Math.abs(constraintTotal - 100) < 0.05;
 
   // Spread the shortfall or excess evenly across the values until they total
   // exactly 100. Values are never driven below zero, so an excess that one
@@ -79,28 +96,26 @@ export default function LeftPanel({ session, width }) {
     const n = uniqueValues.length;
     if (!n) return config.constraints;
     const out = {};
-    uniqueValues.forEach(v => { out[v] = Math.max(0, parseInt(config.constraints[v]) || 0); });
+    uniqueValues.forEach(v => { out[v] = Math.max(0, parseFloat(config.constraints[v]) || 0); });
     const sum = () => uniqueValues.reduce((s, v) => s + out[v], 0);
 
-    for (let guard = 0; guard < 200 && sum() !== 100; guard++) {
-      let diff = 100 - sum();
-      // when trimming, only values with room left can give any back
+    for (let guard = 0; guard < 50 && Math.abs(100 - sum()) > 0.05; guard++) {
+      const diff = 100 - sum();
+      // when trimming, only values with something left can give any back
       const active = uniqueValues.filter(v => diff > 0 || out[v] > 0);
       if (!active.length) break;
-      const step = Math.trunc(diff / active.length);
-      if (step) {
-        active.forEach(v => { out[v] = Math.max(0, out[v] + step); });
-      } else {
-        for (const v of active) {
-          if (diff === 0) break;
-          const next = out[v] + (diff > 0 ? 1 : -1);
-          if (next >= 0) { out[v] = next; diff += diff > 0 ? -1 : 1; }
-        }
-      }
+      const share = diff / active.length;
+      active.forEach(v => { out[v] = Math.max(0, round1(out[v] + share)); });
     }
+    // rounding drift lands on the largest value so the total is exactly 100
+    const drift = round1(100 - sum());
+    if (Math.abs(drift) > 0.05) {
+      const biggest = uniqueValues.reduce((a, b) => (out[a] >= out[b] ? a : b));
+      out[biggest] = Math.max(0, round1(out[biggest] + drift));
+    }
+    uniqueValues.forEach(v => { out[v] = round1(out[v]); });
     return out;
   };
-
 
   const handleTopicChange = (topic) => {
     const preset = TOPICS[topic];
@@ -137,7 +152,7 @@ export default function LeftPanel({ session, width }) {
       windowSize: config.windowSize || 10,
       blockSize: config.blockSize || 5,
       landmarkSize: config.landmarkSize || 5,
-      maxWindows: 50,
+      maxWindows: MAX_WINDOWS,
       delayMs: 0,
       constraints: constraintsToUse,
       attributeColumn: config.protectedAttributeColumn || 'GENDER',
@@ -262,11 +277,10 @@ export default function LeftPanel({ session, width }) {
                 <div key={v} className="flex items-center gap-3">
                   <span className="text-sm text-slate-700 w-36 truncate">{v}</span>
                   <input
-                    type="number"
-                    min={0}
-                    max={100}
+                    type="text"
+                    inputMode="decimal"
                     value={config.constraints[v] ?? ''}
-                    onChange={e => setConfig({ constraints: { ...config.constraints, [v]: Number(e.target.value) } })}
+                    onChange={e => setConfig({ constraints: { ...config.constraints, [v]: sanitizeConstraint(e.target.value) } })}
                     disabled={phase !== 'config'}
                     className="w-20 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-900 focus:outline-none focus:border-emerald-500 disabled:opacity-50"
                   />

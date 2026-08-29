@@ -121,11 +121,11 @@ export default function LiveStream({ liveStream, config, onEnd }) {
           </div>
           <div className="flex flex-wrap gap-4">
             {(() => {
-              const totalPct = Object.values(constraints).reduce((s, v) => s + (parseInt(v) || 0), 0);
+              const totalPct = Object.values(constraints).reduce((s, v) => s + (parseFloat(v) || 0), 0);
               return uniqueGenres.map(genre => {
               const color = getGenreColor(genre);
               const count = blockCounts[genre] || 0;
-              const rawPct = parseInt(constraints[genre]) || 0;
+              const rawPct = parseFloat(constraints[genre]) || 0;
               const p = totalPct > 0 ? rawPct / totalPct : null;
               const floorVal = p !== null ? Math.floor(p * currentWindow.blockSize) : null;
               const ceilVal = p !== null ? Math.ceil(p * currentWindow.blockSize) : null;

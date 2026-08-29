@@ -49,7 +49,7 @@ function checkAllBlocksFair(blocks, constraints, blockSize) {
     for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
     return Object.entries(constraints).every(([g, pct]) => {
       if (!pct) return true;
-      const p = (parseInt(pct) || 0) / 100;
+      const p = (parseFloat(pct) || 0) / 100;
       const floor = Math.floor(p * blockSize);
       const ceil = Math.ceil(p * blockSize);
       const c = counts[g] || 0;
@@ -307,14 +307,14 @@ export function useLiveStream() {
     const blockSize = parseInt(config.blockSize) || 5;
     const fairnessCounts = {};
     for (const [k, pct] of Object.entries(config.constraints)) {
-      fairnessCounts[k] = Math.max(0, Math.floor((parseInt(pct) || 0) / 100 * blockSize));
+      fairnessCounts[k] = Math.max(0, Math.floor((parseFloat(pct) || 0) / 100 * blockSize));
     }
 
     const rawProportions = {};
-    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseInt(v) || 0), 0);
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
     if (totalPct > 0) {
       for (const [k, pct] of Object.entries(config.constraints || {})) {
-        rawProportions[k] = (parseInt(pct) || 0) / totalPct;
+        rawProportions[k] = (parseFloat(pct) || 0) / totalPct;
       }
     }
 

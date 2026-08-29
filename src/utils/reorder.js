@@ -1,11 +1,11 @@
 export function isBlockFair(block, constraints, blockSize) {
   const counts = {};
   for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
-  const total = Object.values(constraints).reduce((s, v) => s + (parseInt(v) || 0), 0);
+  const total = Object.values(constraints).reduce((s, v) => s + (parseFloat(v) || 0), 0);
   if (!total) return true;
   return Object.entries(constraints).every(([g, pct]) => {
     if (!pct) return true;
-    const p = (parseInt(pct) || 0) / total;
+    const p = (parseFloat(pct) || 0) / total;
     const floor = Math.floor(p * blockSize);
     const ceil = Math.ceil(p * blockSize);
     const c = counts[g] || 0;

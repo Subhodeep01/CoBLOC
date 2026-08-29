@@ -2,12 +2,12 @@ import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genre
 
 export default function ConstraintEditor({ constraints, onChange, disabled }) {
   const entries = Object.entries(constraints);
-  const total = entries.reduce((s, [, v]) => s + (parseInt(v) || 0), 0);
+  const total = entries.reduce((s, [, v]) => s + (parseFloat(v) || 0), 0);
   const allEmpty = entries.every(([, v]) => v === '');
 
   const updateValue = (key, val) => {
     if (val === '') { onChange({ ...constraints, [key]: '' }); return; }
-    const num = Math.max(0, Math.min(100, parseInt(val)));
+    const num = Math.max(0, Math.min(100, parseFloat(val)));
     if (!isNaN(num)) onChange({ ...constraints, [key]: num });
   };
 
