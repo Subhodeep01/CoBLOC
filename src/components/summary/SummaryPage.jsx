@@ -88,7 +88,7 @@ export default function SummaryPage({ session }) {
       {/* Recommendation */}
       {monitorOnly
         ? <ConstraintsRecommendation topic={state.config.topic} />
-        : <LandmarkRecommendation currentFairBlocks={fairPct} avgItemsSwapped={avgItemsSwapped} landmarkSize={state.config.landmarkSize} />
+        : <LandmarkRecommendation session={session} />
       }
 
       {/* Restart */}

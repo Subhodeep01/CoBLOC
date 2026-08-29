@@ -1,90 +1,136 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
-const DEMO_L5 = { fairPct: 85, avgSwaps: 4 };
+const API = 'http://localhost:8000';
 
-export default function LandmarkRecommendation({ currentFairBlocks, avgItemsSwapped, landmarkSize }) {
-  const sessions = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cofads_sessions') || '[]')
-        .filter(s => s.fairBlockCount != null);
-    } catch {
-      return [];
+export default function LandmarkRecommendation({ session }) {
+  const { state } = session;
+  const [status, setStatus] = useState('loading');
+  const [pareto, setPareto] = useState([]);
+  const [pick, setPick] = useState(0);
+  const [message, setMessage] = useState('');
+
+  const config = state.config;
+  const xMax = parseInt(config.landmarkSize) || 5;
+
+  const windowCount = state.windows.length;
+
+  useEffect(() => {
+    // No cancel guard: under StrictMode the effect runs twice and cancelling
+    // the first run's response was discarding the only result that arrived,
+    // leaving the panel spinning forever. A late response just writes the same
+    // data twice, which is harmless.
+
+    // The sweep runs on the stream as it arrived, before any reorder, so the
+    // recommendation reflects the raw data rather than a stream the user has
+    // already improved.
+    const stream = state.windows.flatMap(w => (w.movies || []).map(m => m.raw).filter(Boolean));
+    const totalPct = Object.values(config.constraints || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const proportions = {};
+    for (const [k, pct] of Object.entries(config.constraints || {})) {
+      proportions[k] = totalPct ? (parseFloat(pct) || 0) / totalPct : 0;
     }
-  }, []);
 
-  const uniqueLandmarks = [...new Set(sessions.map(s => s.landmarkSize))];
+    if (stream.length < (parseInt(config.windowSize) || 10)) {
+      setStatus('empty');
+      return;
+    }
 
-  if (uniqueLandmarks.length < 1) {
+    fetch(`${API}/api/ablation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stream_items: stream,
+        window_size: parseInt(config.windowSize) || 10,
+        block_size: parseInt(config.blockSize) || 5,
+        proportions,
+        attribute_column: config.protectedAttributeColumn || 'GENDER',
+        x_max: xMax,
+      }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status !== 'ok' || !d.pareto?.length) {
+          setMessage(d.message || 'No landmark sizes could be compared for this session.');
+          setStatus('empty');
+          return;
+        }
+        setPareto(d.pareto);
+        setPick(0);
+        setStatus('ready');
+      })
+      .catch(e => {
+        setMessage(e.message);
+        setStatus('empty');
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowCount]);
+
+  if (status === 'loading') {
     return (
-      <div className="mt-6 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">Landmark Recommendation</h3>
-        <p className="text-base text-slate-400">
-          Complete a session with reordering to unlock a recommendation.
+      <div className="mt-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-2xl font-bold text-slate-900 mb-4">Landmark Recommendation</h3>
+        <div className="flex items-center gap-3 text-slate-500">
+          <span className="inline-block w-5 h-5 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
+          <span className="text-base">Loading the recommendations…</span>
+        </div>
+        <p className="text-sm text-slate-400 mt-2">
+          Sweeping landmark 1 to {xMax} over the original stream.
         </p>
       </div>
     );
   }
 
-  const byLandmark = {};
-  for (const s of sessions) {
-    if (!byLandmark[s.landmarkSize]) {
-      byLandmark[s.landmarkSize] = { fairBlockCounts: [], deltas: [] };
-    }
-    byLandmark[s.landmarkSize].fairBlockCounts.push(s.fairBlockCount ?? 0);
-    byLandmark[s.landmarkSize].deltas.push(s.avgReorderDelta || 0);
+  if (status === 'empty') {
+    return (
+      <div className="mt-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-2xl font-bold text-slate-900 mb-2">Landmark Recommendation</h3>
+        <p className="text-base text-slate-400">
+          {message || 'Explore more windows to unlock a recommendation.'}
+        </p>
+      </div>
+    );
   }
 
-  const chartData = Object.entries(byLandmark).map(([size, data]) => ({
-    landmarkSize: parseInt(size),
-    avgFairBlocks: Math.round(data.fairBlockCounts.reduce((a, b) => a + b, 0) / data.fairBlockCounts.length),
-    reorderEffort: parseInt(size) * 10,
-  }));
-
-  const scored = chartData.map(d => ({
-    ...d,
-    score: d.avgFairBlocks / (d.reorderEffort || 1),
-  }));
-  const recommended = scored.sort((a, b) => b.score - a.score)[0];
+  const chosen = pareto[Math.min(pick, pareto.length - 1)];
+  const maxLatency = Math.max(...pareto.map(p => p.latency_ms));
+  const minLatency = Math.min(...pareto.map(p => p.latency_ms));
 
   return (
     <div className="mt-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
       <h3 className="text-2xl font-bold text-slate-900 mb-5">Landmark Recommendation</h3>
 
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-5">
+      <div className="mb-6">
+        <input
+          type="range"
+          min={0}
+          max={pareto.length - 1}
+          step={1}
+          value={Math.min(pick, pareto.length - 1)}
+          onChange={e => setPick(parseInt(e.target.value))}
+          className="w-full accent-emerald-600"
+        />
+        <div className="flex justify-between text-sm text-slate-500 mt-1">
+          <span>Minimum latency</span>
+          <span>Maximum fairness</span>
+        </div>
+      </div>
+
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
         <p className="text-lg text-emerald-700">
-          Recommended landmark size: <span className="font-bold text-slate-900 text-4xl ml-2">{landmarkSize === 10 ? 5 : recommended.landmarkSize}</span>
+          Recommended landmark size:
+          <span className="font-bold text-slate-900 text-4xl ml-2">{chosen.landmark}</span>
         </p>
         <p className="text-base text-emerald-600 mt-3">
-          The pareto front between fairness achieved ({landmarkSize === 10 ? DEMO_L5.fairPct : currentFairBlocks}% of blocks fair) and reorder cost (avg {landmarkSize === 10 ? DEMO_L5.avgSwaps : (avgItemsSwapped ?? '—')} swaps/window) is analyzed and best landmark size is {landmarkSize === 10 ? 5 : recommended.landmarkSize}.
+          The pareto front between fairness achieved ({chosen.pct_fair}% of blocks fair) and
+          reordering latency ({chosen.latency_ms} ms) is analyzed and best landmark size
+          is {chosen.landmark}.
         </p>
       </div>
 
-      {landmarkSize === 10 && (
-        <div>
-          <p className="text-base font-semibold text-slate-400 uppercase tracking-wider mb-3">Pareto comparison</p>
-          <div className="space-y-3">
-            {[
-              { size: 5, fairPct: DEMO_L5.fairPct, avgSwaps: DEMO_L5.avgSwaps, recommended: true },
-              { size: 10, fairPct: currentFairBlocks, avgSwaps: avgItemsSwapped != null ? avgItemsSwapped + 2 : '—', recommended: false },
-            ].map(({ size, fairPct, avgSwaps, recommended: isRec }) => (
-              <div
-                key={size}
-                className={`flex items-center justify-between p-4 rounded-xl border ${
-                  isRec ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <span className="flex items-center gap-2 text-slate-700 font-semibold text-base">
-                  {isRec && <span className="text-emerald-600 font-bold text-lg">★</span>}
-                  Landmark size {size}
-                </span>
-                <span className={`font-semibold text-base ${isRec ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  {fairPct}% fair &middot; avg {avgSwaps} swaps/window
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <p className="text-sm text-slate-400 mt-4">
+        {pareto.length} landmark {pareto.length === 1 ? 'size sits' : 'sizes sit'} on the pareto
+        front, from {minLatency} ms up to {maxLatency} ms. Drag the slider to trade latency for fairness.
+      </p>
     </div>
   );
 }

@@ -22,7 +22,13 @@ export default function MainArea({ session }) {
         <LiveStream
           liveStream={liveStream}
           config={state.config}
-          onEnd={() => endSession(liveStream.visitedWindows)}
+          onEnd={() => {
+            // The stream no longer stops itself after a fixed window count, so
+            // ending the session has to stop it. Otherwise the consumer keeps
+            // running and competes with the ablation sweep for CPU.
+            liveStream.stopStream();
+            endSession(liveStream.visitedWindows);
+          }}
         />
       )}
 
