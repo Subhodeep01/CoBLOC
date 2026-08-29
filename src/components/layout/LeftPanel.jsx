@@ -19,10 +19,16 @@ const round1 = n => Math.round(n * 10) / 10;
 // Constraints are percentages, not counts, so decimals are legitimate. Strip
 // anything that is not a digit or a single dot, which also blocks the minus
 // sign that was letting negative shares through, and cap at 100.
+const MAX_DECIMALS = 2;
+
 function sanitizeConstraint(raw) {
   let s = String(raw).replace(/[^\d.]/g, '');
   const dot = s.indexOf('.');
-  if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+  if (dot !== -1) {
+    // one decimal point, and no more precision than a percentage warrants
+    const frac = s.slice(dot + 1).replace(/\./g, '').slice(0, MAX_DECIMALS);
+    s = s.slice(0, dot + 1) + frac;
+  }
   if (s === '' || s === '.') return s;
   return parseFloat(s) > 100 ? '100' : s;
 }
