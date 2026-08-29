@@ -139,7 +139,13 @@ export default function TimelineChart({ windows, config }) {
   // made them unreadable.
   const VISIBLE_BLOCKS = 20;
   const BAR_SLOT = 48;
-  const chartWidth = Math.max(data.length, 1) * BAR_SLOT;
+  // A long session can produce thousands of blocks, and one bar per block times
+  // one segment per attribute value is tens of thousands of SVG nodes on a
+  // canvas tens of thousands of pixels wide, which locks the tab up. Chart a
+  // bounded prefix and say so rather than freezing.
+  const MAX_CHARTED = 300;
+  const charted = data.slice(0, MAX_CHARTED);
+  const chartWidth = Math.max(charted.length, 1) * BAR_SLOT;
   const showLabels = true;
   const bottomMargin = 60;
   const xAxisHeight = 80;
@@ -167,10 +173,10 @@ export default function TimelineChart({ windows, config }) {
       <div className="overflow-x-auto pb-2" style={{ maxWidth: `${VISIBLE_BLOCKS * BAR_SLOT}px` }}>
       <div style={{ width: `${chartWidth}px`, minWidth: '100%' }}>
       <ResponsiveContainer width="100%" height={420}>
-        <BarChart data={data} margin={{ top: 10, right: 20, bottom: bottomMargin, left: 0 }} barCategoryGap="25%">
+        <BarChart data={charted} margin={{ top: 10, right: 20, bottom: bottomMargin, left: 0 }} barCategoryGap="25%">
           <XAxis
             dataKey="name"
-            tick={(props) => <CustomXAxisTick {...props} data={data} showLabel={showLabels} />}
+            tick={(props) => <CustomXAxisTick {...props} data={charted} showLabel={showLabels} />}
             axisLine={{ stroke: '#e2e8f0' }}
             tickLine={false}
             height={xAxisHeight}
@@ -196,7 +202,8 @@ export default function TimelineChart({ windows, config }) {
       </div>
       {data.length > VISIBLE_BLOCKS && (
         <p className="text-sm text-slate-400 mt-1">
-          Showing {VISIBLE_BLOCKS} of {data.length} blocks, scroll sideways for the rest.
+          Showing {VISIBLE_BLOCKS} of {charted.length} charted blocks, scroll sideways for the rest.
+          {data.length > MAX_CHARTED && ` First ${MAX_CHARTED} of ${data.length} blocks are charted.`}
         </p>
       )}
     </div>
