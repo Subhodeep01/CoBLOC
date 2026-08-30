@@ -82,7 +82,7 @@ export default function LandmarkRecommendation({ session }) {
           <span className="text-base">Loading the recommendations…</span>
         </div>
         <p className="text-sm text-slate-400 mt-2">
-          Sweeping landmark 1 to {xMax} over the original stream.
+          Sweeping landmark 1 to {xMax} over the original stream, averaged over 10 runs.
         </p>
       </div>
     );
