@@ -3,7 +3,7 @@
 // size means an unusable page rather than a slow one. getDivisors also walks
 // 1..n on each keystroke, which is its own stall at that scale.
 const MAX_WINDOW = 1000;
-const MAX_LANDMARK = 5000;
+const MAX_LANDMARK = 100;
 
 function getDivisors(n) {
   const divs = [];
