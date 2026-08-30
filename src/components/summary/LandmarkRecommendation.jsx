@@ -116,7 +116,7 @@ export default function LandmarkRecommendation({ session }) {
             step={1}
             value={Math.min(pick, pareto.length - 1)}
             onChange={e => setPick(parseInt(e.target.value))}
-            className="w-full accent-emerald-600"
+            className="landmark-slider w-full accent-emerald-600"
           />
           <div className="flex justify-between text-sm text-slate-500 mt-1">
             <span>Minimum latency</span>

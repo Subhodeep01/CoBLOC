@@ -23,3 +23,41 @@ body {
   background: #94a3b8;
   border-radius: 3px;
 }
+
+/* Landmark recommendation slider. The default thumb is small enough to be
+   easy to miss on the summary screen, so both the track and the handle are
+   drawn larger. Each engine needs its own thumb rule. */
+.landmark-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  outline: none;
+}
+.landmark-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #059669;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+}
+.landmark-slider::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #059669;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+  cursor: pointer;
+  border-radius: 50%;
+}
+.landmark-slider::-moz-range-track {
+  height: 10px;
+  border-radius: 5px;
+  background: #e2e8f0;
+}
