@@ -50,6 +50,14 @@ Install the UI dependencies:
 npm install
 ```
 
+Newer npm versions are stricter about peer dependencies and can fail here. The
+repo ships an `.npmrc` setting `legacy-peer-deps=true` so this resolves on its
+own; if you still hit a peer dependency error, run it explicitly:
+
+```bash
+npm install --legacy-peer-deps
+```
+
 ## Running
 
 **1. Kafka**, from the `Streaming-p-Fairness` directory:
