@@ -78,7 +78,7 @@ export default function LandmarkRecommendation({ session }) {
       <div className="mt-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
         <h3 className="text-2xl font-bold text-slate-900 mb-4">Landmark Recommendation</h3>
         <div className="flex items-center gap-3 text-slate-500">
-          <span className="inline-block w-5 h-5 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
+          <span className="animate-spin text-xl">⏳</span>
           <span className="text-base">Loading the recommendations…</span>
         </div>
         <p className="text-sm text-slate-400 mt-2">
