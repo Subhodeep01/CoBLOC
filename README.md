@@ -87,14 +87,25 @@ backend.
 
 ### Choosing a landmark size
 
-Set this generously, a few hundred rather than single digits. The dataset CSVs
-are ordered, so any single window tends to hold only one or two attribute
-values, and a reorder confined to that window has nothing to work with. The
-look-ahead is what fixes it.
+Bigger is better, up to the maximum of 100. A reorder confined to one window
+has only that window's records to work with, and the look-ahead is what gives
+it room.
 
-Measured on Movies / Release Era, window 20, block 5, five eras at 20%: a
-landmark of 5 or 40 leaves 0 of 4 blocks fair. At 200, **Reorder with Landmark**
-reaches 4 of 4.
+Measured on Movies / Release Era, window 20, block 5, five eras at 20%:
+
+| landmark | blocks fair |
+|---|---|
+| 1 | 40% |
+| 10 | 69% |
+| 20 | 88% |
+| 40 | 97% |
+| 60 | 99% |
+| 100 | 99% |
+
+It flattens out around 80, so the 100 ceiling is not the limiting factor. The
+ceiling exists because the landmark recommendation sweeps every size from 1 up
+to it when the session ends, and that sweep costs roughly the square of the
+landmark: 100 takes about 20 seconds, while 5000 would run for hours.
 
 If a reorder appears to do nothing, the landmark is almost always too small.
 
