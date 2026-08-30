@@ -75,7 +75,11 @@ export function useLiveStream() {
 
   const wsRef = useRef(null);
   const windowBufferRef = useRef([]);
-  const pendingLandmarkRef = useRef(null); // { baseIdx, winSize, blockSize, allReordered }
+  const pendingLandmarkRef = useRef(null);
+  // Which consumer run this session is watching. A restart leaves the previous
+  // run's updates in flight, and adopting them made a fresh session open on
+  // whatever window the old one had reached.
+  const runIdRef = useRef(null);
 
   useEffect(() => {
     fetch(`${API}/api/datasets`)
@@ -101,6 +105,7 @@ export function useLiveStream() {
         try { msg = JSON.parse(data); } catch { return; }
 
         if (msg.type === 'window_update') {
+          if (runIdRef.current != null && msg.run_id != null && msg.run_id !== runIdRef.current) return;
           let win = buildWindow(msg);
           setLatestMetrics(msg.metrics || {});
           setWindowBuffer(prev => {
@@ -336,7 +341,10 @@ export function useLiveStream() {
       body: JSON.stringify(body),
     });
     const data = await r.json();
-    if (data.status !== 'error') setRunning(true);
+    if (data.status !== 'error') {
+      runIdRef.current = data.run_id ?? null;
+      setRunning(true);
+    }
   }, []);
 
   const stopStream = useCallback(() => {
