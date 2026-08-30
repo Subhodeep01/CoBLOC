@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { genreDistribution } from '../../utils/metrics';
 import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
+import { isBlockFair } from '../../utils/reorder';
 
 function computeSerendipitousBlock(windows) {
   const allBlocks = [];
@@ -27,13 +28,42 @@ function computeSerendipitousBlock(windows) {
   return best;
 }
 
+// One bar per block, not one for the whole window. Reordering permutes items
+// inside the window, so the window's overall distribution is identical before
+// and after by construction and the two bars always looked the same. Fairness
+// is a per-block property, so that is what has to be drawn.
+function BlockBars({ blocks, label, constraints, blockSize }) {
+  return (
+    <div className="space-y-2">
+      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+      {blocks.map((block, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-400 w-6 shrink-0">B{i + 1}</span>
+          <div className="flex-1">
+            <DistBar blocks={[block]} />
+          </div>
+          <span
+            className={`text-xs font-bold w-4 shrink-0 ${
+              isBlockFair(block, constraints, block.length || blockSize)
+                ? 'text-emerald-500'
+                : 'text-red-500'
+            }`}
+          >
+            {isBlockFair(block, constraints, block.length || blockSize) ? '✓' : '✗'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DistBar({ blocks, label }) {
   const allItems = blocks.flat();
   const dist = genreDistribution(allItems);
   const genres = Object.keys(dist).sort();
   return (
     <div className="space-y-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+      {label && <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>}
       <div className="flex h-5 w-full rounded overflow-hidden border border-slate-200">
         {genres.map(g => {
           const pct = dist[g] || 0;
@@ -68,7 +98,7 @@ function DistBar({ blocks, label }) {
   );
 }
 
-export default function HighlightedWindows({ windows, monitorOnly }) {
+export default function HighlightedWindows({ windows, monitorOnly, constraints = {} }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const activeDotRef = useRef(null);
 
@@ -162,8 +192,18 @@ export default function HighlightedWindows({ windows, monitorOnly }) {
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Reordered</span>
         </div>
         <div className="grid grid-cols-2 gap-6">
-          <DistBar blocks={active.blocks} label="Before" />
-          <DistBar blocks={active.reorderedBlocks} label="After" />
+          <BlockBars
+            blocks={active.blocks}
+            label="Before"
+            constraints={constraints}
+            blockSize={active.blockSize}
+          />
+          <BlockBars
+            blocks={active.reorderedBlocks}
+            label="After"
+            constraints={constraints}
+            blockSize={active.blockSize}
+          />
         </div>
       </div>
 

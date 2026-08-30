@@ -94,7 +94,7 @@ export default function SummaryPage({ session }) {
       </div>
 
       {/* Highlighted windows */}
-      <HighlightedWindows windows={state.windows} monitorOnly={monitorOnly} />
+      <HighlightedWindows windows={state.windows} monitorOnly={monitorOnly} constraints={state.config.constraints} />
 
       {/* Recommendation */}
       {monitorOnly

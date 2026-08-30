@@ -206,7 +206,6 @@ export function useLiveStream() {
       for (let ni = idx + 1; ni <= idx + landmarkSize; ni++) {
         intendedIndices.push(ni);
       }
-      setLandmarkLoadedIndices(prev => new Set([...prev, ...intendedIndices]));
 
       const landmarkItems = [];
       const bufferedLandmarkIndices = [];
@@ -217,6 +216,11 @@ export function useLiveStream() {
           if (items.length > 0) landmarkItems.push(items[items.length - 1].raw);
         }
       }
+      // Claim only the windows that were actually reordered. Marking all of
+      // intendedIndices up front counted windows the look-ahead never reached
+      // as landmark-affected, which pulled unreordered windows into the
+      // session summary.
+      setLandmarkLoadedIndices(prev => new Set([...prev, idx, ...bufferedLandmarkIndices]));
 
       const combined = [...windowItems, ...landmarkItems];
 
@@ -285,15 +289,26 @@ export function useLiveStream() {
           };
         }
         setReordered(true);
+        const applied = bufferedLandmarkIndices.length;
+        // The look-ahead can only use windows the stream has already
+        // delivered, so a landmark asked for early in a session covers fewer
+        // windows than requested. Say so instead of reporting the full size.
+        const shortfall = applied < landmarkSize
+          ? ` Only ${applied} of the ${landmarkSize} look-ahead windows had arrived, so that is what was used.`
+          : '';
         const counts = bpw ? `, ${before} to ${after} of ${bpw} blocks fair.` : '.';
         if (data.reorder_feasible === false) {
           setReorderStatus({
             phase: 'infeasible',
             message: `Reordered as far as this data allows${counts}`
-              + ' Items that cannot fit a fair block are grouped at the end of the window.',
+              + ' Items that cannot fit a fair block are grouped at the end of the window.'
+              + shortfall,
           });
         } else {
-          setReorderStatus({ phase: 'done', message: `Reordered using landmark size ${landmarkSize}${counts}` });
+          setReorderStatus({
+            phase: 'done',
+            message: `Reordered using landmark size ${landmarkSize}${counts}${shortfall}`,
+          });
         }
       } else {
         setReorderStatus({ phase: 'error', message: data.message || 'Reorder failed.' });
