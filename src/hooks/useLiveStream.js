@@ -438,7 +438,10 @@ export function useLiveStream() {
   const lastVisited = Math.max(maxReachedIdx, ...landmarkLoadedIndices, -1);
   const visitedWindows = windowBuffer.slice(0, lastVisited + 1);
 
+  const clearReorderStatus = useCallback(() => setReorderStatus(null), []);
+
   return {
+    clearReorderStatus,
     connected,
     running,
     producing,

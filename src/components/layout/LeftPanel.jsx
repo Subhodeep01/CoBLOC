@@ -382,8 +382,10 @@ export default function LeftPanel({ session, width }) {
           </div>
         )}
 
-        {/* Status message */}
-        {reorderStatus && !isLoading && (
+        {/* Status message. Tied to the streaming phase: it describes the
+            window being looked at, so it has no meaning once the session ends
+            and it was still on screen during the next session's setup. */}
+        {reorderStatus && !isLoading && phase === 'streaming' && (
           <div className={`rounded-lg px-4 py-3 text-sm border ${
             reorderStatus.phase === 'done'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-700'

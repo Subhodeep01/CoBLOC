@@ -68,12 +68,14 @@ export function useSession() {
   }, []);
 
   const endSession = useCallback((liveWindows) => {
+    liveStream.clearReorderStatus();
     dispatch({ type: 'END_SESSION', payload: { liveWindows } });
-  }, []);
+  }, [liveStream]);
 
   const restart = useCallback(() => {
+    liveStream.clearReorderStatus();
     dispatch({ type: 'RESTART', payload: { initialState } });
-  }, []);
+  }, [liveStream]);
 
   return {
     state,
