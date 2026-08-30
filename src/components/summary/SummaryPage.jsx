@@ -42,10 +42,12 @@ export default function SummaryPage({ session }) {
       <div className="mb-8">
         <h2 className="text-4xl font-bold text-slate-900">Session Summary</h2>
         <p className="text-lg text-slate-500 mt-1">
-          {state.windows.length} windows explored &middot;
-          {' '}{state.windows.filter(w => w.isReordered).length} reordered
+          {state.windows.length} windows explored
           {!monitorOnly && (
-            <> &middot; Landmark size: {state.config.landmarkSize}</>
+            <>
+              {' '}&middot; {state.windows.filter(w => w.isReordered).length} reordered
+              {' '}&middot; Landmark size: {state.config.landmarkSize}
+            </>
           )}
         </p>
       </div>
@@ -56,11 +58,20 @@ export default function SummaryPage({ session }) {
           <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">Total Windows</p>
           <p className="text-5xl font-bold text-slate-900 mt-2">{state.windows.length}</p>
         </div>
+        {/* Monitor-only datasets cannot be reordered at all, so a "Reorders 0"
+            card reads as a failed session rather than as a mode without the
+            feature. */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">Reorders</p>
-          <p className="text-5xl font-bold text-violet-600 mt-2">
-            {state.windows.filter(w => w.isReordered).length}
-          </p>
+          {monitorOnly ? (
+            <p className="text-lg font-semibold text-slate-400 mt-3">
+              Not available on this dataset
+            </p>
+          ) : (
+            <p className="text-5xl font-bold text-violet-600 mt-2">
+              {state.windows.filter(w => w.isReordered).length}
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-base font-semibold text-slate-400 uppercase tracking-wider">
