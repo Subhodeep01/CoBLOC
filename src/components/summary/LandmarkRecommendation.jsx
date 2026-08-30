@@ -107,21 +107,30 @@ export default function LandmarkRecommendation({ session }) {
     <div className="mt-6 p-6 bg-white rounded-xl border border-slate-200 shadow-sm">
       <h3 className="text-2xl font-bold text-slate-900 mb-5">Landmark Recommendation</h3>
 
-      <div className="mb-6">
-        <input
-          type="range"
-          min={0}
-          max={pareto.length - 1}
-          step={1}
-          value={Math.min(pick, pareto.length - 1)}
-          onChange={e => setPick(parseInt(e.target.value))}
-          className="w-full accent-emerald-600"
-        />
-        <div className="flex justify-between text-sm text-slate-500 mt-1">
-          <span>Minimum latency</span>
-          <span>Maximum fairness</span>
+      {pareto.length > 1 ? (
+        <div className="mb-6">
+          <input
+            type="range"
+            min={0}
+            max={pareto.length - 1}
+            step={1}
+            value={Math.min(pick, pareto.length - 1)}
+            onChange={e => setPick(parseInt(e.target.value))}
+            className="w-full accent-emerald-600"
+          />
+          <div className="flex justify-between text-sm text-slate-500 mt-1">
+            <span>Minimum latency</span>
+            <span>Maximum fairness</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        // With a single point on the front there is nothing to trade off, and
+        // a slider pinned to one end reads as broken rather than as decided.
+        <p className="mb-6 text-base text-slate-500">
+          One landmark size wins outright here, so there is no latency to trade
+          against fairness and nothing to drag.
+        </p>
+      )}
 
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
         <p className="text-lg text-emerald-700">
@@ -136,8 +145,11 @@ export default function LandmarkRecommendation({ session }) {
       </div>
 
       <p className="text-sm text-slate-400 mt-4">
-        {pareto.length} landmark {pareto.length === 1 ? 'size sits' : 'sizes sit'} on the pareto
-        front, from {minLatency} ms up to {maxLatency} ms. Drag the slider to trade latency for fairness.
+        {pareto.length > 1
+          ? `${pareto.length} landmark sizes sit on the pareto front, from ${minLatency} ms up to `
+            + `${maxLatency} ms. Drag the slider to trade latency for fairness.`
+          : `Landmark ${chosen.landmark} was both the fairest and the fastest of the sizes swept, `
+            + `so every other size is dominated and the front holds one point.`}
       </p>
     </div>
   );
