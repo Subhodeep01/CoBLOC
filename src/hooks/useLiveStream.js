@@ -123,7 +123,11 @@ export function useLiveStream() {
                 pendingLandmarkRef.current = null;
               }
             }
-            const next = [...prev.slice(-499), win];
+            // Append only. Dropping the front shifted every index, so the
+            // window the user was parked on changed under them each time a new
+            // one arrived, which read as the view racing through the stream.
+            // The consumer is held to LEAD_WINDOWS ahead, so this stays bounded.
+            const next = [...prev, win];
             windowBufferRef.current = next;
             if (prev.length === 0) {
               setCurrentIdx(0);
@@ -397,6 +401,17 @@ export function useLiveStream() {
     setReordered(win?.isReordered ?? false);
     setCurrentIdx(idx);
   }, []);
+
+  // Let the consumer know where the viewer is so it paces itself instead of
+  // streaming thousands of windows ahead.
+  useEffect(() => {
+    if (currentIdx < 0) return;
+    fetch(`${API}/api/position`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ window_number: currentIdx + 1 }),
+    }).catch(() => {});
+  }, [currentIdx]);
 
   const currentWindow = windowBuffer[currentIdx] ?? null;
   const canNext = currentIdx >= 0 && currentIdx < windowBuffer.length - 1;
