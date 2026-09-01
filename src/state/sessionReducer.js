@@ -1,5 +1,6 @@
 import { chunkIntoBlocks } from '../utils/windowOps';
 import { TOPICS } from '../constants/topics';
+import { isBlockFair } from '../utils/reorder';
 
 export function sessionReducer(state, action) {
   switch (action.type) {
@@ -158,20 +159,14 @@ export function sessionReducer(state, action) {
         : state.windows;
 
       const monitorOnly = TOPICS[state.config.topic]?.monitorOnly ?? false;
-      const TOLERANCE = 10;
       const constraints = state.config.constraints;
 
       if (monitorOnly) {
         const allBlocks = resolvedWindows.flatMap(w => w.blocks);
-        const fairBlockCount = allBlocks.filter(block => {
-          const counts = {};
-          for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
-          const total = block.length || 1;
-          return Object.entries(constraints).every(([g, target]) =>
-            Math.abs(Math.round((counts[g] || 0) / total * 100) - target) <= TOLERANCE
-          );
-        }).length;
-        const monitorSessions = JSON.parse(localStorage.getItem('cofads_monitor_sessions') || '[]');
+        const fairBlockCount = allBlocks.filter(
+          block => isBlockFair(block, constraints, block.length || 1)
+        ).length;
+        const monitorSessions = JSON.parse(localStorage.getItem('cofads_monitor_sessions_v2') || '[]');
         monitorSessions.push({
           topic: state.config.topic,
           constraints: { ...state.config.constraints },
@@ -180,22 +175,17 @@ export function sessionReducer(state, action) {
           windowCount: resolvedWindows.length,
           timestamp: Date.now(),
         });
-        localStorage.setItem('cofads_monitor_sessions', JSON.stringify(monitorSessions));
+        localStorage.setItem('cofads_monitor_sessions_v2', JSON.stringify(monitorSessions));
       } else {
-        const existing = JSON.parse(localStorage.getItem('cofads_sessions') || '[]');
+        const existing = JSON.parse(localStorage.getItem('cofads_sessions_v2') || '[]');
         const reorderedWindows = resolvedWindows.filter(w => w.isReordered);
         const avgDelta = reorderedWindows.length > 0
           ? reorderedWindows.reduce((s, w) => s + (w.reorderDelta || 0), 0) / reorderedWindows.length
           : 0;
         const allBlocks = resolvedWindows.flatMap(w => w.blocks);
-        const fairBlockCount = allBlocks.filter(block => {
-          const counts = {};
-          for (const m of block) counts[m.genre] = (counts[m.genre] || 0) + 1;
-          const total = block.length || 1;
-          return Object.entries(constraints).every(([g, target]) =>
-            Math.abs(Math.round((counts[g] || 0) / total * 100) - target) <= TOLERANCE
-          );
-        }).length;
+        const fairBlockCount = allBlocks.filter(
+          block => isBlockFair(block, constraints, block.length || 1)
+        ).length;
         existing.push({
           landmarkSize: state.config.landmarkSize,
           avgReorderDelta: avgDelta,
@@ -204,7 +194,7 @@ export function sessionReducer(state, action) {
           windowCount: resolvedWindows.length,
           timestamp: Date.now(),
         });
-        localStorage.setItem('cofads_sessions', JSON.stringify(existing));
+        localStorage.setItem('cofads_sessions_v2', JSON.stringify(existing));
       }
 
       return { ...state, windows: resolvedWindows, phase: 'summary' };

@@ -4,7 +4,7 @@ import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genre
 export default function ConstraintsRecommendation({ topic }) {
   const sessions = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('cofads_monitor_sessions') || '[]')
+      return JSON.parse(localStorage.getItem('cofads_monitor_sessions_v2') || '[]')
         .filter(s => s.topic === topic && s.fairBlockCount != null);
     } catch {
       return [];

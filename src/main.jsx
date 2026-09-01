@@ -5,18 +5,18 @@ import App from './App.jsx'
 
 // Remove legacy session entries that predate the fairBlockCount field
 try {
-  const sessions = JSON.parse(localStorage.getItem('cofads_sessions') || '[]');
+  const sessions = JSON.parse(localStorage.getItem('cofads_sessions_v2') || '[]');
   const cleaned = sessions.filter(s => s.fairBlockCount != null);
   if (cleaned.length !== sessions.length) {
-    localStorage.setItem('cofads_sessions', JSON.stringify(cleaned));
+    localStorage.setItem('cofads_sessions_v2', JSON.stringify(cleaned));
   }
 } catch { /* ignore */ }
 
 try {
-  const monitorSessions = JSON.parse(localStorage.getItem('cofads_monitor_sessions') || '[]');
+  const monitorSessions = JSON.parse(localStorage.getItem('cofads_monitor_sessions_v2') || '[]');
   const cleaned = monitorSessions.filter(s => s.fairBlockCount != null);
   if (cleaned.length !== monitorSessions.length) {
-    localStorage.setItem('cofads_monitor_sessions', JSON.stringify(cleaned));
+    localStorage.setItem('cofads_monitor_sessions_v2', JSON.stringify(cleaned));
   }
 } catch { /* ignore */ }
 
