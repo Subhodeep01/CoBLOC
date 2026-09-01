@@ -202,7 +202,7 @@ export default function LeftPanel({ session, width }) {
               <img
                 src="/cobloc-logo.png"
                 alt="CoBLOC"
-                className="h-16 w-auto max-w-full object-contain object-left"
+                className="h-20 w-auto max-w-full object-contain object-left"
                 onError={() => setLogoOk(false)}
               />
             ) : (
