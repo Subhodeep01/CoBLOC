@@ -49,6 +49,10 @@ export default function LiveStream({ liveStream, config, onEnd }) {
   const blockFair = isBlockFair(activeBlock, constraints, currentWindow.blockSize);
   const isWindowFair = checkWindowFair(activeBlocks, constraints, currentWindow.blockSize);
   const uniqueGenres = [...new Set(activeBlocks.flat().map(i => i.genre))].sort();
+  // Every constrained value, not just the ones that turned up in this block. A
+  // value whose floor is 0 is allowed to be absent, and listing only what is
+  // present hid that, so a fair block looked like it was ignoring constraints.
+  const constrainedGenres = [...new Set([...Object.keys(constraints || {}), ...uniqueGenres])].sort();
 
   return (
     <div className="h-full flex flex-col gap-6">
@@ -122,7 +126,7 @@ export default function LiveStream({ liveStream, config, onEnd }) {
           <div className="flex flex-wrap gap-4">
             {(() => {
               const totalPct = Object.values(constraints).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-              return uniqueGenres.map(genre => {
+              return constrainedGenres.map(genre => {
               const color = getGenreColor(genre);
               const count = blockCounts[genre] || 0;
               const rawPct = parseFloat(constraints[genre]) || 0;
@@ -133,7 +137,9 @@ export default function LiveStream({ liveStream, config, onEnd }) {
                 <span key={genre} className="flex items-center gap-2 text-sm text-slate-600">
                   <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: color?.bg || '#94a3b8' }} />
                   {GENRE_LABELS[genre] ?? genre}:{' '}
-                  <span className="text-slate-900 font-semibold">{count} item{count !== 1 ? 's' : ''}</span>
+                  <span className={count === 0 ? 'text-slate-400 font-semibold' : 'text-slate-900 font-semibold'}>
+                    {count} item{count !== 1 ? 's' : ''}
+                  </span>
                   {floorVal !== null ? <span className="text-slate-400">(target [{floorVal}, {ceilVal}])</span> : null}
                 </span>
               );

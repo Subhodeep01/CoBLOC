@@ -18,6 +18,9 @@ function makeItem(item, index, windowNumber) {
   };
 }
 
+// Marks the gap between asking for a run and being told its id.
+const PENDING_RUN = Symbol('pending-run');
+
 function buildWindow(msg) {
   const items = (msg.window_items || []).map((v, i) => makeItem(v, i, msg.window_number));
   const blockSize = msg.block_size || 5;
@@ -105,6 +108,12 @@ export function useLiveStream() {
         try { msg = JSON.parse(data); } catch { return; }
 
         if (msg.type === 'window_update') {
+          // Nothing is accepted until this session knows which run it is
+          // watching. The previous check only filtered once the run id had
+          // arrived, so a retired consumer's stragglers that landed while
+          // /api/start was still in flight were adopted, and the session
+          // opened on that run's window number instead of 1.
+          if (runIdRef.current === PENDING_RUN) return;
           if (runIdRef.current != null && msg.run_id != null && msg.run_id !== runIdRef.current) return;
           let win = buildWindow(msg);
           setLatestMetrics(msg.metrics || {});
@@ -319,6 +328,7 @@ export function useLiveStream() {
   }, []);
 
   const startStream = useCallback(async (config) => {
+    runIdRef.current = PENDING_RUN;   // drop stragglers until the run id lands
     setWindowBuffer([]);
     windowBufferRef.current = [];
     pendingLandmarkRef.current = null;
@@ -362,7 +372,14 @@ export function useLiveStream() {
     const data = await r.json();
     if (data.status !== 'error') {
       runIdRef.current = data.run_id ?? null;
+      // Anything buffered while the id was unknown belonged to the old run.
+      setWindowBuffer([]);
+      windowBufferRef.current = [];
+      setCurrentIdx(-1);
+      setMaxReachedIdx(-1);
       setRunning(true);
+    } else {
+      runIdRef.current = null;
     }
   }, []);
 
