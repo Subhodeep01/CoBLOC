@@ -36,6 +36,7 @@ function sanitizeConstraint(raw) {
 export default function LeftPanel({ session, width }) {
   const { state, liveStream, setConfig, startMonitor, endSession } = session;
   const { config, phase } = state;
+  const [logoOk, setLogoOk] = useState(true);
 
   const topicConfig = TOPICS[config.topic];
   const isMonitorOnly = topicConfig?.monitorOnly ?? true;
@@ -193,8 +194,20 @@ export default function LeftPanel({ session, width }) {
       {/* Header */}
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900 tracking-tight">CoBLOC</h1>
+          <div className="min-w-0">
+            {/* The wordmark is the logo when the image is present, and falls
+                back to text if it is missing so the header never renders
+                empty. */}
+            {logoOk ? (
+              <img
+                src="/cobloc-logo.png"
+                alt="CoBLOC"
+                className="h-16 w-auto max-w-full object-contain object-left"
+                onError={() => setLogoOk(false)}
+              />
+            ) : (
+              <h1 className="text-4xl font-bold text-slate-900 tracking-tight">CoBLOC</h1>
+            )}
             <p className="text-base text-slate-500 mt-1">Continuous Block Level Fairness on Data Streams</p>
           </div>
           <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
