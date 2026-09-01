@@ -193,7 +193,7 @@ export default function LeftPanel({ session, width }) {
     >
       {/* Header */}
       <div className="p-6 border-b border-slate-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {/* The wordmark is the logo when the image is present, and falls
                 back to text if it is missing so the header never renders
@@ -208,9 +208,8 @@ export default function LeftPanel({ session, width }) {
             ) : (
               <h1 className="text-4xl font-bold text-slate-900 tracking-tight">CoBLOC</h1>
             )}
-            <p className="text-base text-slate-500 mt-1">Continuous Block Level Fairness on Data Streams</p>
           </div>
-          <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+          <span className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
             liveStream.connected
               ? 'bg-emerald-100 text-emerald-700'
               : 'bg-slate-100 text-slate-400'
@@ -219,6 +218,9 @@ export default function LeftPanel({ session, width }) {
             {liveStream.connected ? 'Connected' : 'Disconnected'}
           </span>
         </div>
+        {/* Full width, below the badge. Sharing a row with it squeezed the
+            subtitle into two cramped lines that ran into the badge. */}
+        <p className="text-base text-slate-500 mt-2">Continuous Block Level Fairness on Data Streams</p>
       </div>
 
       {/* Config */}
