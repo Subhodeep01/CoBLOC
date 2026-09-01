@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getGenreColor, GENRE_COLORS, GENRE_LABELS } from '../../constants/genres';
 import { genreDistribution } from '../../utils/metrics';
 import { isBlockFair } from '../../utils/reorder';
@@ -184,7 +184,6 @@ export default function TimelineChart({ windows, config }) {
           />
           <YAxis hide domain={[0, 100]} />
           <Tooltip content={<CustomTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 16, color: '#334155', fontWeight: '600' }} />
           {allGenres.map((genre) => (
             <Bar
               key={genre}
@@ -200,6 +199,20 @@ export default function TimelineChart({ windows, config }) {
       </ResponsiveContainer>
       </div>
       </div>
+
+      {/* Outside the scroll container so it stays put while the chart scrolls. */}
+      <div className="flex flex-wrap gap-x-5 gap-y-2 mt-3 pt-3 border-t border-slate-100">
+        {allGenres.map((genre) => (
+          <span key={genre} className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+            <span
+              className="inline-block w-3.5 h-3.5 rounded-sm shrink-0"
+              style={{ backgroundColor: getGenreColor(genre).bg }}
+            />
+            {GENRE_LABELS[genre] ?? genre}
+          </span>
+        ))}
+      </div>
+
       {data.length > VISIBLE_BLOCKS && (
         <p className="text-sm text-slate-400 mt-1">
           Showing {VISIBLE_BLOCKS} of {charted.length} charted blocks, scroll sideways for the rest.
