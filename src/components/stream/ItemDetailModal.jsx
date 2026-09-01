@@ -3,9 +3,6 @@ import { createPortal } from 'react-dom';
 import { getGenreColor } from '../../constants/genres';
 
 const SKIP = new Set(['value', '_display_title']);
-// The stream is a shuffle of the archive, so a record's date says nothing
-// about when it arrived and reading an order into it would be misleading.
-const isDateField = k => /(^|[^a-z])(date|time|timestamp|doa|d_o_a)([^a-z]|$)/i.test(String(k));
 const PAD = 12;
 const GAP = 8;
 
@@ -48,7 +45,7 @@ export default function ItemDetailModal({ movie, onClose }) {
   if (!movie) return null;
   const color = getGenreColor(movie.genre);
   const raw = movie.raw || {};
-  const entries = Object.entries(raw).filter(([k]) => !SKIP.has(k) && !isDateField(k) && raw[k] !== '');
+  const entries = Object.entries(raw).filter(([k]) => !SKIP.has(k) && raw[k] !== '');
 
   return (
     <>
