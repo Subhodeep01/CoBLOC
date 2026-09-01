@@ -48,7 +48,7 @@ function checkAllBlocksFair(blocks, constraints, blockSize) {
     const counts = {};
     for (const item of block) counts[item.genre] = (counts[item.genre] || 0) + 1;
     return Object.entries(constraints).every(([g, pct]) => {
-      if (!pct) return true;
+      // A 0 target means floor 0 and ceiling 0: the value must be absent.
       const p = (parseFloat(pct) || 0) / 100;
       const floor = Math.floor(p * blockSize);
       const ceil = Math.ceil(p * blockSize);

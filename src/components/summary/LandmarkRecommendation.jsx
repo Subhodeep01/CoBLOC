@@ -13,6 +13,7 @@ export default function LandmarkRecommendation({ session }) {
   const xMax = parseInt(config.landmarkSize) || 5;
 
   const windowCount = state.windows.length;
+  const anyReordered = state.windows.some(w => w.isReordered);
 
   useEffect(() => {
     // No cancel guard: under StrictMode the effect runs twice and cancelling
@@ -36,6 +37,13 @@ export default function LandmarkRecommendation({ session }) {
     const proportions = {};
     for (const [k, pct] of Object.entries(config.constraints || {})) {
       proportions[k] = totalPct ? (parseFloat(pct) || 0) / totalPct : 0;
+    }
+
+    // Nothing was reordered, so there is no landmark choice to recommend.
+    if (!anyReordered) {
+      setMessage('No reordering was performed so landmark recommendation not available.');
+      setStatus('empty');
+      return;
     }
 
     if (stream.length < (parseInt(config.windowSize) || 10)) {
@@ -71,7 +79,7 @@ export default function LandmarkRecommendation({ session }) {
         setStatus('empty');
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowCount]);
+  }, [windowCount, anyReordered]);
 
   if (status === 'loading') {
     return (
@@ -82,7 +90,7 @@ export default function LandmarkRecommendation({ session }) {
           <span className="text-base">Loading the recommendations…</span>
         </div>
         <p className="text-sm text-slate-400 mt-2">
-          Sweeping landmark 1 to {xMax} over the original stream, averaged over 10 runs.
+          Sweeping landmark 1 to {xMax} over the original stream.
         </p>
       </div>
     );

@@ -4,7 +4,9 @@ export function isBlockFair(block, constraints, blockSize) {
   const total = Object.values(constraints).reduce((s, v) => s + (parseFloat(v) || 0), 0);
   if (!total) return true;
   return Object.entries(constraints).every(([g, pct]) => {
-    if (!pct) return true;
+    // A target of 0 gives floor 0 and ceiling 0, so the value must not appear
+    // in the block at all. Skipping it here let a block hold an item whose
+    // share was set to 0 and still count as fair.
     const p = (parseFloat(pct) || 0) / total;
     const floor = Math.floor(p * blockSize);
     const ceil = Math.ceil(p * blockSize);
